@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ap_study
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ap-study-network
+
+  ap-study-backend:
+    build:
+      context: ./ap-study-backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:8000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/ap_study?schema=public
+    depends_on:
+      - postgres
+    networks:
+      - ap-study-network
+
+  ap-study-app:
+    build:
+      context: ./ap-study-app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    depends_on:
+      - ap-study-backend
+    networks:
+      - ap-study-network
+
+volumes:
+  postgres_data:
+
+networks:
+  ap-study-network:
+    driver: bridge
