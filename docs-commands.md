@@ -16,6 +16,7 @@ cd ap-study-app && npm run dev
 ## 🐳 Docker コマンド
 
 ### 基本操作
+
 ```bash
 # 初回起動（ビルド付き）
 docker compose up --build
@@ -43,6 +44,7 @@ docker compose exec ap-study-app sh
 ```
 
 ### トラブルシューティング
+
 ```bash
 # キャッシュクリア
 docker system prune -f
@@ -58,6 +60,7 @@ docker system prune -a -f
 ## 🔧 バックエンド (ap-study-backend)
 
 ### 開発コマンド
+
 ```bash
 cd ap-study-backend
 
@@ -75,6 +78,7 @@ npx tsc --noEmit
 ```
 
 ### データベース操作
+
 ```bash
 cd ap-study-backend
 
@@ -106,6 +110,7 @@ npx tsx src/seed.ts
 ```
 
 ### API テスト
+
 ```bash
 # ヘルスチェック
 curl http://localhost:8000/
@@ -127,6 +132,7 @@ curl -X PUT http://localhost:8000/api/study/progress \
 ## 🎨 フロントエンド (ap-study-app)
 
 ### 開発コマンド
+
 ```bash
 cd ap-study-app
 
@@ -150,6 +156,7 @@ npm run lint -- --fix
 ```
 
 ### Next.js 特有
+
 ```bash
 cd ap-study-app
 
@@ -168,6 +175,7 @@ ANALYZE=true npm run build
 ## 📦 パッケージ管理
 
 ### 依存関係更新
+
 ```bash
 # バックエンド
 cd ap-study-backend
@@ -181,6 +189,7 @@ npm audit fix
 ```
 
 ### よく使うパッケージ追加
+
 ```bash
 # バックエンド
 cd ap-study-backend
@@ -198,6 +207,7 @@ npm install -D @types/react @types/react-dom
 ## 🧪 テスト・品質チェック
 
 ### 品質チェック一括実行
+
 ```bash
 # バックエンド品質チェック
 cd ap-study-backend
@@ -212,6 +222,7 @@ npx tsc --noEmit
 ```
 
 ### パフォーマンステスト
+
 ```bash
 # API レスポンス時間
 time curl http://localhost:8000/api/study/plan
@@ -231,6 +242,7 @@ du -sh .next/static/chunks/*
 ## 🔍 デバッグ・ログ確認
 
 ### ログ確認
+
 ```bash
 # Docker環境のログ
 docker compose logs -f ap-study-backend
@@ -242,6 +254,7 @@ cd ap-study-app && npm run dev
 ```
 
 ### プロセス確認
+
 ```bash
 # ポート使用状況確認
 lsof -i :3000  # フロントエンド
@@ -258,6 +271,7 @@ pkill -f "tsx"
 ## 📁 ファイル・ディレクトリ操作
 
 ### よく使うファイル確認
+
 ```bash
 # 設定ファイル確認
 cat package.json
@@ -271,6 +285,7 @@ tail -f /var/log/nginx/error.log
 ```
 
 ### プロジェクト構造確認
+
 ```bash
 # 主要ディレクトリ構造
 tree -I "node_modules|.next|dist" -L 3
@@ -289,6 +304,7 @@ ls -la */Dockerfile
 ## 🌐 本番デプロイ関連
 
 ### Vercel デプロイ
+
 ```bash
 cd ap-study-app
 
@@ -306,6 +322,7 @@ vercel --prod
 ```
 
 ### 環境変数設定
+
 ```bash
 # 開発環境
 cp .env.example .env
@@ -321,6 +338,7 @@ cd ap-study-app && node -e "console.log(process.env)"
 ## 🚨 緊急時対応
 
 ### サービス復旧
+
 ```bash
 # 全サービス停止・再起動
 docker compose down
@@ -332,6 +350,7 @@ docker compose restart ap-study-app
 ```
 
 ### データベース復旧
+
 ```bash
 cd ap-study-backend
 
@@ -344,6 +363,7 @@ npx prisma migrate reset --schema=./src/infrastructure/database/prisma/schema.pr
 ```
 
 ### キャッシュクリア
+
 ```bash
 # Next.js キャッシュ
 cd ap-study-app && rm -rf .next

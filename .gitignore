@@ -75,4 +75,8 @@ docker-compose.override.yml
 build/
 dist/
 
+# Claude specific files
+.claude
+
+# project specific
 ap-study-*
