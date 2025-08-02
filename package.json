@@ -1,0 +1,38 @@
+{
+  "name": "ap-study-project",
+  "version": "1.0.0",
+  "description": "応用情報技術者試験 学習管理システム",
+  "scripts": {
+    "dev": "./dev.sh start local",
+    "dev:docker": "./dev.sh start docker",
+    "stop": "./dev.sh stop",
+    "restart": "./dev.sh restart local",
+    "restart:docker": "./dev.sh restart docker",
+    "clean": "./dev.sh clean",
+    "status": "./dev.sh status",
+    "db:setup": "./dev.sh db-setup",
+    "setup": "./scripts/dev-setup.sh",
+    "install:all": "cd ap-study-app && npm install && cd ../ap-study-backend && npm install && cd ..",
+    "build:all": "cd ap-study-app && npm run build && cd ../ap-study-backend && npm run build && cd ..",
+    "lint:all": "cd ap-study-app && npm run lint && cd ../ap-study-backend && npm run lint && cd .."
+  },
+  "keywords": [
+    "ap-exam",
+    "study-management",
+    "quiz",
+    "learning",
+    "next.js",
+    "hono",
+    "prisma"
+  ],
+  "author": "AP Study Project Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/ap-study-project.git"
+  },
+  "engines": {
+    "node": "^22.17.1",
+    "npm": ">=10.0.0"
+  }
+}

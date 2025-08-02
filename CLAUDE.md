@@ -3,6 +3,7 @@
 ## 📋 プロジェクト概要
 
 **応用情報技術者試験 学習管理システム**  
+
 - Next.js 15 + React 19 フロントエンド
 - Hono.js + Prisma バックエンドAPI  
 - クリーンアーキテクチャ採用
@@ -35,6 +36,7 @@ ap-study-project/
 ### 🚀 起動コマンド
 
 **Docker環境（推奨）:**
+
 ```bash
 # 初回起動
 docker compose up --build
@@ -44,6 +46,7 @@ docker compose up
 ```
 
 **個別起動:**
+
 ```bash
 # バックエンド
 cd ap-study-backend
@@ -88,11 +91,13 @@ npm run build
 ## 📚 参考ドキュメント
 
 ### 📋 開発管理
+
 - **`docs-milestones.md`** - 詳細なマイルストーン・タスク管理
 - **`docs-development-workflow.md`** - 開発手順・ベストプラクティス
 - **`docs-commands.md`** - よく使うコマンド一覧
 
 ### 📖 プロジェクト仕様
+
 - **`docs-app-requirements.md`** - アプリ要件定義
 - **`docs-study-plan.md`** - 学習計画詳細
 - **`docs-vercel-deploy-guide.md`** - デプロイ手順
@@ -100,6 +105,7 @@ npm run build
 ## 📊 現在のマイルストーン
 
 ### 🎯 マイルストーン 1: 基盤機能の完成（進行中）
+
 - [ ] データベース初期化・マイグレーション実行
 - [ ] API-Frontend連携実装
 - [ ] 基本UI改善（ローディング、エラーハンドリング）
@@ -108,6 +114,7 @@ npm run build
 **詳細**: `docs-milestones.md` 参照
 
 ### 📋 次のマイルストーン
+
 - **マイルストーン 2**: 学習記録機能の充実
 - **マイルストーン 3**: 分析・予測機能
 - **マイルストーン 4**: UX/パフォーマンス最適化
@@ -115,18 +122,21 @@ npm run build
 ## 🎨 技術スタック・制約
 
 ### フロントエンド
+
 - **Next.js 15** (App Router)
 - **React 19**
 - **TypeScript 5.8+**
 - **Tailwind CSS 4.1+**
 
 ### バックエンド
+
 - **Hono.js 4.0+** (軽量Webフレームワーク)
 - **Prisma ORM 5.10+** (データベースORM)
 - **Zod 3.22+** (バリデーション)
 - **TypeScript 5.3+**
 
 ### インフラ
+
 - **Node.js 22.17.1** (LTS)
 - **Docker & Docker Compose**
 - **PostgreSQL 15** (本番) / SQLite (開発)
@@ -134,6 +144,7 @@ npm run build
 ## 🔄 開発フロー
 
 ### 機能追加時
+
 1. **仕様確認** - `docs-app-requirements.md` 参照
 2. **設計検討** - クリーンアーキテクチャに従う
 3. **バックエンド実装** - ドメイン → インフラ層
@@ -141,22 +152,32 @@ npm run build
 5. **テスト・品質チェック** - lint, build, 動作確認
 
 ### ディレクトリ命名規則
+
 - **docs-***: 文書ファイル
 - **ap-study-***: プロダクトディレクトリ
 
 ## 🚨 重要な制約・注意事項
 
+### Git コミット規約
+
+- **IMPORTANT**: コミットメッセージにClaude Code署名を含めない
+- 🤖 Generated with [Claude Code] および Co-Authored-By: Claude は除外する
+- Conventional Commits形式を使用（feat:, fix:, docs:など）
+
 ### セキュリティ
+
 - 機密情報は `.env` で管理
 - 本番環境では環境変数設定必須
 - CORS設定は開発/本番で切り替え
 
 ### パフォーマンス
+
 - バンドルサイズ最適化が必要
 - API レスポンス最適化が必要
 - 画像最適化が必要
 
 ### 開発効率
+
 - **Claude Code 専用**: このファイルで効率的な開発を支援
 - **段階的実装**: マイルストーン順に機能追加
 - **品質重視**: 各段階で lint/build チェック必須
@@ -164,11 +185,13 @@ npm run build
 ## 🔍 デバッグ・トラブルシューティング
 
 ### よくある問題
+
 - **CORS エラー**: `ap-study-backend/src/app.ts` のCORS設定確認
 - **型エラー**: TypeScript 5.8+ と React 19 の互換性確認
 - **ビルドエラー**: Node.js 22.17.1 使用確認
 
 ### ログ確認
+
 ```bash
 # バックエンドログ
 docker compose logs ap-study-backend
@@ -186,4 +209,8 @@ docker compose logs ap-study-app
 
 ---
 
-**💡 Claude Code への指示**: このファイルの内容を参考に、効率的で品質の高い開発を進めてください。マイルストーン順に段階的な実装を心がけ、各段階で動作確認を必ず実施してください。
+**💡 Claude Code への指示**:
+
+- このファイルの内容を参考に、効率的で品質の高い開発を進めてください
+- マイルストーン順に段階的な実装を心がけ、各段階で動作確認を必ず実施してください
+- **重要**: gitコミット時は署名を含めずに、上記のGitコミット規約に厳密に従ってください

@@ -19,10 +19,11 @@ services:
       context: ./ap-study-backend
       dockerfile: Dockerfile
     ports:
-      - "3001:8000"
+      - "8000:8000"
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/ap_study?schema=public
+      - PORT=8000
     depends_on:
       - postgres
     networks:
@@ -36,7 +37,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - ap-study-backend
     networks:

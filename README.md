@@ -33,12 +33,48 @@ ap-study-project/
 └── README.md                        # このファイル
 ```
 
-## 🐳 Docker環境での起動（推奨）
+## 🚀 クイックスタート（推奨）
+
+重複コンテナを自動停止して開発環境を起動する便利スクリプトを用意しています：
 
 ```bash
 # プロジェクトディレクトリに移動
 cd ap-study-project
 
+# 🐳 Docker環境で起動（推奨）
+./dev.sh start docker
+# または
+npm run dev:docker
+
+# 💻 ローカル環境で起動（高速）
+./dev.sh start local  
+# または
+npm run dev
+
+# 📊 サービス状態確認
+./dev.sh status
+# または
+npm run status
+
+# 🛑 全サービス停止
+./dev.sh stop
+# または
+npm run stop
+
+# 🔄 再起動
+./dev.sh restart docker
+# または
+npm run restart:docker
+
+# 🧹 環境クリーンアップ
+./dev.sh clean
+# または
+npm run clean
+```
+
+### 従来のDocker Compose起動
+
+```bash
 # 初回起動（ビルド・DB初期化・シード投入）
 docker compose up --build
 
@@ -100,8 +136,17 @@ npm run dev
 ## 🌐 アクセス URL
 
 - **フロントエンド**: <http://localhost:3000>
-- **バックエンド API**: <http://localhost:3001>
+- **バックエンド API**: <http://localhost:8000>
 - **PostgreSQL**: localhost:5432
+
+### 主要機能
+
+- **📊 ダッシュボード**: 学習進捗の概要表示
+- **📅 学習計画**: 12週間の詳細学習スケジュール
+- **✏️ 学習記録**: 日別学習時間・理解度の記録
+- **📝 問題演習**: 午前・午後問題の結果記録
+- **🧭 Quiz**: IPA公式過去問による演習システム
+- **📈 分析**: 学習パターン分析・予測機能
 
 ## 🛠 技術スタック
 
