@@ -111,7 +111,7 @@ DATABASE_URL = your-database-url
   "regions": ["nrt1"],
   "functions": {
     "app/api/**/*.ts": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs22.x"
     }
   },
   "rewrites": [

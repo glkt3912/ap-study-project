@@ -49,7 +49,7 @@ docker compose up
 ## 🔧 個別起動（開発用）
 
 ### 前提条件
-- Node.js 20+
+- Node.js 22+
 - PostgreSQL 15+
 
 ### データベース準備
@@ -102,13 +102,13 @@ npm run dev
 ## 🛠 技術スタック
 
 ### フロントエンド
-- **Next.js 15** - React フレームワーク
+- **Next.js 15** - React フレームワーク (Node.js 22+ 対応)
 - **React 19** - UI ライブラリ
 - **TypeScript** - 型安全性
 - **Tailwind CSS** - スタイリング
 
 ### バックエンド
-- **Hono.js** - 軽量 Web フレームワーク
+- **Hono.js** - 軽量 Web フレームワーク (Node.js 22+ 対応)
 - **TypeScript** - 型安全性
 - **Prisma ORM** - データベース ORM
 - **PostgreSQL** - リレーショナルデータベース
