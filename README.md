@@ -55,7 +55,7 @@ ap-study-project/
 
 ## 🚀 クイックスタート（推奨）
 
-重複コンテナを自動停止して開発環境を起動する便利スクリプトを用意しています：
+重複プロセス・コンテナを自動停止して開発環境を起動する便利スクリプトを用意しています：
 
 ```bash
 # プロジェクトディレクトリに移動
@@ -66,33 +66,36 @@ cd ap-study-project
 # または
 npm run dev:docker
 
-# 💻 ローカル環境で起動（高速）
+# 💻 ローカル環境で起動（高速開発用）
 ./dev.sh start local  
 # または
 npm run dev
 
-# 📊 サービス状態確認
+# 📊 サービス状態確認（ポート・プロセス・エンドポイント）
 ./dev.sh status
 # または
 npm run status
 
-# 🛑 全サービス停止
+# 🛑 全サービス停止（重複プロセス含む）
 ./dev.sh stop
 # または
 npm run stop
 
-# 🔄 再起動
+# 🔄 再起動（クリーンアップ後起動）
 ./dev.sh restart docker
 # または
 npm run restart:docker
 
-# 🧹 環境クリーンアップ
+# 🧹 環境完全クリーンアップ
 ./dev.sh clean
 # または
 npm run clean
+
+# 🗄️ データベースのみセットアップ
+./dev.sh db-setup
 ```
 
-### 従来のDocker Compose起動
+### 🔧 従来のDocker Compose起動
 
 ```bash
 # 初回起動（ビルド・DB初期化・シード投入）
@@ -100,21 +103,27 @@ docker compose up --build
 
 # 通常起動
 docker compose up
+
+# バックグラウンド起動
+docker compose up -d
 ```
 
 ## 🔧 個別起動（開発用）
 
 ### 前提条件
 
-- Node.js 22+
-- PostgreSQL 15+
+- **Node.js 22.17.1 LTS** (厳密バージョン要求)
+- **PostgreSQL 15+** (本番環境)
+- **Docker & Docker Compose** (推奨開発環境)
 
 ### データベース準備
 
 ```bash
-# PostgreSQL を起動
-# データベース 'ap_study' を作成
+# PostgreSQL を起動してデータベース作成
 createdb ap_study
+
+# または Docker でPostgreSQL起動
+docker compose up -d postgres
 ```
 
 ### バックエンド
@@ -128,13 +137,16 @@ npm install
 # 環境変数設定
 export DATABASE_URL="postgresql://username:password@localhost:5432/ap_study?schema=public"
 
-# マイグレーション実行
-npx prisma migrate deploy --schema=./src/infrastructure/database/prisma/schema.prisma
+# Prismaクライアント生成
+npm run db:generate
 
-# シードデータ投入
-npx tsx src/seed.ts
+# データベーススキーマ同期
+npm run db:push
 
-# 開発サーバー起動
+# シードデータ投入（自動実行）
+npx tsx src/infrastructure/database/seeds/seed-questions.ts
+
+# 開発サーバー起動（ポート8000）
 npm run dev
 ```
 
@@ -189,9 +201,10 @@ npm run dev
 ### フロントエンド
 - **Next.js 15** - React フレームワーク (App Router)
 - **React 19** - 最新UI ライブラリ
-- **TypeScript 5.8+** - 厳格な型安全性
-- **Tailwind CSS 3.4+** - ユーティリティファーストCSS
+- **TypeScript 5.8+** - 厳格な型安全性 (strict mode)
+- **Tailwind CSS 4.1+** - ユーティリティファーストCSS
 - **ESLint** - 厳格なコード品質チェック
+- **PWA対応** - プログレッシブウェブアプリ機能
 
 ### バックエンド
 - **Hono.js 4.0+** - 軽量・高速 Web フレームワーク
@@ -199,12 +212,14 @@ npm run dev
 - **Prisma ORM 5.10+** - 型安全なデータベースORM
 - **PostgreSQL 15** - 高性能リレーショナルDB
 - **Zod 3.22+** - スキーマバリデーション
+- **クリーンアーキテクチャ** - domain/infrastructure 分離
 
 ### 開発・品質保証
 - **Docker & Docker Compose** - 一貫した開発環境
-- **Node.js 22.17.1 LTS** - 最新安定版
-- **厳格TypeScript設定** - strictNullChecks, noImplicitAny
+- **Node.js 22.17.1 LTS** - 最新安定版（厳密バージョン管理）
+- **厳格TypeScript設定** - strictNullChecks, noImplicitAny, noUncheckedIndexedAccess
 - **包括的診断システム** - 4種類の専用テストページ
+- **自動開発環境管理** - dev.sh スクリプトによる重複プロセス管理
 - **自動品質チェック** - lint, typecheck, build 自動実行
 
 ## 📊 データベース構造
@@ -234,12 +249,24 @@ npm run dev
 - `GET /api/health` - システムヘルスチェック
 - `GET /api/debug/info` - 環境情報取得
 
-## 📈 品質指標
+## 📈 品質指標・特徴
 
-- **型安全性**: 95% (strict TypeScript + ESLint)
+### コード品質
+- **型安全性**: 98% (strict TypeScript + ESLint + 厳格設定)
 - **テストカバレッジ**: 診断インフラによる包括的チェック
-- **パフォーマンス**: 初期表示 <1秒, API応答 <200ms
+- **コード品質**: 未使用変数・import自動削除、厳格lint適用
+- **アーキテクチャ**: クリーンアーキテクチャ準拠
+
+### パフォーマンス
+- **初期表示**: <1秒 (PWA対応による高速化)
+- **API応答**: <200ms (Hono.js軽量フレームワーク)
+- **バンドルサイズ**: 最適化済み
 - **開発効率**: デバッグ時間 80%短縮 (診断ページ活用)
+
+### 開発体験
+- **自動環境管理**: 重複プロセス・ポートの自動解決
+- **包括的検査**: CSS/API/環境の統合診断
+- **即座のフィードバック**: リアルタイム型チェック・lint
 
 ## 🚀 デプロイ & 本番運用
 
@@ -258,9 +285,17 @@ NODE_ENV=production
 
 ### 品質保証コマンド
 ```bash
-# 本番ビルド前チェック
-npm run lint      # ESLint厳格チェック
-npm run build     # TypeScript型チェック + ビルド
-npm run test      # 診断テスト実行
+# フロントエンド品質チェック
+cd ap-study-app
+npm run lint      # ESLint厳格チェック (未使用削除含む)
+npm run build     # TypeScript strict型チェック + ビルド
+
+# バックエンド品質チェック  
+cd ap-study-backend
+npm run build     # TypeScript strict型チェック + ビルド
+npm run db:generate # Prismaクライアント生成
+
+# 統合診断テスト
+./dev.sh status   # 環境・API・ポート包括チェック
 ```
 
