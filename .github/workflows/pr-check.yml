@@ -1,0 +1,300 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '22.17.1'
+
+jobs:
+  # コードレビュー自動化
+  code-review:
+    name: Automated Code Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies - Frontend
+        run: |
+          cd ap-study-app
+          npm ci
+
+      - name: Install dependencies - Backend
+        run: |
+          cd ap-study-backend
+          npm ci
+
+      - name: Run ESLint with annotations
+        run: |
+          cd ap-study-app
+          npm run lint -- --format=@microsoft/eslint-formatter-sarif --output-file=eslint-results.sarif
+        continue-on-error: true
+
+      - name: Upload ESLint results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ap-study-app/eslint-results.sarif
+          wait-for-processing: true
+
+      - name: TypeScript check - Frontend
+        run: |
+          cd ap-study-app
+          npx tsc --noEmit
+
+      - name: TypeScript check - Backend
+        run: |
+          cd ap-study-backend
+          npx tsc --noEmit
+
+  # 変更差分分析
+  change-analysis:
+    name: Change Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files_yaml: |
+            frontend:
+              - 'ap-study-app/**'
+            backend:
+              - 'ap-study-backend/**'
+            docs:
+              - 'docs-*'
+              - '*.md'
+            config:
+              - '.github/**'
+              - 'docker-compose.yml'
+              - 'Dockerfile'
+
+      - name: PR size analysis
+        run: |
+          frontend_changes=${{ steps.changed-files.outputs.frontend_all_changed_files_count }}
+          backend_changes=${{ steps.changed-files.outputs.backend_all_changed_files_count }}
+          total_changes=$((frontend_changes + backend_changes))
+          
+          echo "📊 Change Analysis:"
+          echo "Frontend files: $frontend_changes"
+          echo "Backend files: $backend_changes"
+          echo "Total changes: $total_changes"
+          
+          if [ $total_changes -gt 20 ]; then
+            echo "⚠️ Large PR detected (>20 files). Consider breaking into smaller PRs."
+          fi
+
+      - name: Comment PR with analysis
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const frontend = ${{ steps.changed-files.outputs.frontend_all_changed_files_count }};
+            const backend = ${{ steps.changed-files.outputs.backend_all_changed_files_count }};
+            const docs = ${{ steps.changed-files.outputs.docs_all_changed_files_count }};
+            const config = ${{ steps.changed-files.outputs.config_all_changed_files_count }};
+            
+            const body = `## 📊 Change Analysis
+            
+            | Category | Files Changed |
+            |----------|---------------|
+            | Frontend | ${frontend} |
+            | Backend | ${backend} |
+            | Documentation | ${docs} |
+            | Configuration | ${config} |
+            
+            ${frontend + backend > 20 ? '⚠️ **Large PR**: Consider breaking into smaller changes for easier review.' : '✅ **Good size**: PR is manageable for review.'}
+            
+            ### 🔍 Review Focus Areas:
+            ${frontend > 0 ? '- 🎨 Frontend changes - UI/UX impact' : ''}
+            ${backend > 0 ? '- ⚙️ Backend changes - API/Database impact' : ''}
+            ${docs > 0 ? '- 📚 Documentation updates' : ''}
+            ${config > 0 ? '- 🔧 Configuration changes - Deployment impact' : ''}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # テストカバレッジ分析
+  coverage-analysis:
+    name: Test Coverage Analysis
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.changed_files, 'ap-study-app/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd ap-study-app
+          npm ci
+
+      - name: Run tests with coverage
+        run: |
+          cd ap-study-app
+          npm run test:coverage
+
+      - name: Coverage comment
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          lcov-file: ./ap-study-app/coverage/lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          title: '📊 Test Coverage Report'
+
+  # セキュリティチェック
+  security-check:
+    name: Security Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+  # パフォーマンステスト
+  performance-test:
+    name: Performance Test
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.changed_files, 'ap-study-app/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd ap-study-app
+          npm ci
+
+      - name: Build for performance test
+        run: |
+          cd ap-study-app
+          npm run build
+
+      - name: Bundle size analysis
+        run: |
+          cd ap-study-app
+          npx next-bundle-analyzer --no-open
+        continue-on-error: true
+
+      - name: Performance budget check
+        run: |
+          cd ap-study-app/.next/static/chunks
+          total_size=$(du -sb . | cut -f1)
+          max_size=1048576  # 1MB limit
+          
+          echo "📦 Bundle size: $(( total_size / 1024 ))KB"
+          echo "🎯 Budget: $(( max_size / 1024 ))KB"
+          
+          if [ $total_size -gt $max_size ]; then
+            echo "❌ Bundle size exceeds budget!"
+            exit 1
+          else
+            echo "✅ Bundle size within budget"
+          fi
+
+  # PR Ready Check
+  pr-ready:
+    name: PR Ready for Review
+    runs-on: ubuntu-latest
+    needs: [code-review, change-analysis, coverage-analysis, security-check, performance-test]
+    if: always()
+
+    steps:
+      - name: Check all jobs status
+        run: |
+          code_review="${{ needs.code-review.result }}"
+          change_analysis="${{ needs.change-analysis.result }}"
+          coverage="${{ needs.coverage-analysis.result }}"
+          security="${{ needs.security-check.result }}"
+          performance="${{ needs.performance-test.result }}"
+          
+          echo "📋 PR Check Results:"
+          echo "Code Review: $code_review"
+          echo "Change Analysis: $change_analysis"
+          echo "Coverage: $coverage"
+          echo "Security: $security"
+          echo "Performance: $performance"
+          
+          if [[ "$code_review" == "success" && "$change_analysis" == "success" && 
+                ("$coverage" == "success" || "$coverage" == "skipped") && 
+                "$security" == "success" && 
+                ("$performance" == "success" || "$performance" == "skipped") ]]; then
+            echo "✅ All checks passed! PR is ready for review."
+          else
+            echo "❌ Some checks failed. Please review and fix issues."
+            exit 1
+          fi
+
+      - name: Update PR status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allPassed = ${{ needs.code-review.result == 'success' && 
+                                    needs.change-analysis.result == 'success' && 
+                                    (needs.coverage-analysis.result == 'success' || needs.coverage-analysis.result == 'skipped') && 
+                                    needs.security-check.result == 'success' && 
+                                    (needs.performance-test.result == 'success' || needs.performance-test.result == 'skipped') }};
+            
+            const status = allPassed ? '✅ Ready for Review' : '❌ Needs Attention';
+            const emoji = allPassed ? '🎉' : '⚠️';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ${emoji} PR Status: ${status}
+              
+              ${allPassed ? 
+                'All automated checks have passed! This PR is ready for human review.' : 
+                'Some automated checks failed. Please review the failed checks and address any issues.'}
+              
+              ### Quick Links:
+              - 🔍 [View all checks](${context.payload.pull_request.html_url}/checks)
+              - 📊 [Coverage report](${context.payload.pull_request.html_url}/checks)
+              - 🔒 [Security scan](${context.payload.pull_request.html_url}/checks)
+              `
+            });

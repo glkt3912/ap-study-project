@@ -206,6 +206,68 @@ npm install -D @types/react @types/react-dom
 
 ## 🧪 テスト・品質チェック
 
+### TDD開発 (推奨)
+
+```bash
+# TDD初期化 + 実装生成
+./scripts/tdd-helper.sh init StudyLogCreation
+./scripts/tdd-helper.sh generate StudyLogCreation
+
+# TDD Red-Green-Refactorサイクル
+./scripts/tdd-helper.sh red       # Red: 失敗テスト実行
+./scripts/tdd-helper.sh green     # Green: 最小実装確認
+./scripts/tdd-helper.sh refactor  # Refactor: 品質向上
+
+# TDD完全サイクル (一括実行)
+./scripts/tdd-helper.sh cycle
+
+# 現在のTDD状況確認
+./scripts/tdd-helper.sh status
+```
+
+---
+
+## 📊 進捗管理 (自動化)
+
+### 基本進捗記録
+
+```bash
+# タスク完了記録 (TodoWrite使用後必須)
+./scripts/progress-manager.sh task-complete "具体的なタスク内容"
+
+# 新機能開発開始
+./scripts/progress-manager.sh feature-start "機能名"
+
+# マイルストーン更新
+./scripts/progress-manager.sh milestone-update "Milestone 3" "in-progress"
+./scripts/progress-manager.sh milestone-update "Milestone 3" "completed"
+```
+
+### サマリー生成
+
+```bash
+# 日次開発サマリー
+./scripts/progress-manager.sh daily-summary
+
+# 週次開発サマリー  
+./scripts/progress-manager.sh week-summary
+
+# 進捗管理システム状況確認
+./scripts/progress-manager.sh status
+```
+
+### NPMスクリプトTDD
+
+```bash
+cd ap-study-backend
+
+# 個別フェーズ実行
+npm run tdd:red      # Red Phase
+npm run tdd:green    # Green Phase  
+npm run tdd:refactor # Refactor Phase
+npm run tdd:cycle    # Full Cycle
+```
+
 ### 品質チェック一括実行
 
 ```bash

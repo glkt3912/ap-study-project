@@ -1,0 +1,289 @@
+name: Integration CI/CD (Coordination Hub)
+
+on:
+  # Manual trigger for coordination
+  workflow_dispatch:
+    inputs:
+      deploy_frontend:
+        description: 'Deploy frontend'
+        required: false
+        type: boolean
+        default: false
+      deploy_backend:
+        description: 'Deploy backend'
+        required: false
+        type: boolean
+        default: false
+  
+  # Repository dispatch from submodules
+  repository_dispatch:
+    types: [frontend-updated, backend-updated]
+
+env:
+  NODE_VERSION: '22.17.1'
+
+jobs:
+  # 変更検出
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+      backend: ${{ steps.changes.outputs.backend }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Detect changed files
+        uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            frontend:
+              - 'ap-study-app/**'
+            backend:
+              - 'ap-study-backend/**'
+
+  # フロントエンドのテスト・ビルド
+  frontend-test:
+    name: Frontend Test & Build
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    defaults:
+      run:
+        working-directory: ./ap-study-app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: './ap-study-app/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test:run
+
+      - name: Generate test coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./ap-study-app/coverage/coverage-final.json
+          flags: frontend
+          name: frontend-coverage
+        if: success()
+
+      - name: Build application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: ./ap-study-app/.next
+          retention-days: 1
+
+  # バックエンドのテスト・ビルド
+  backend-test:
+    name: Backend Test & Build
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    defaults:
+      run:
+        working-directory: ./ap-study-backend
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: ap_study_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: './ap-study-backend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup database
+        run: |
+          npm run db:generate
+          npm run db:push
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/ap_study_test
+
+      - name: Run TypeScript build
+        run: npm run build
+
+      - name: Run tests (when implemented)
+        run: echo "Backend tests will be implemented in Phase C"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: ./ap-study-backend/dist
+          retention-days: 1
+
+  # 統合テスト
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [detect-changes, frontend-test, backend-test]
+    if: always() && (needs.frontend-test.result == 'success' || needs.frontend-test.result == 'skipped') && (needs.backend-test.result == 'success' || needs.backend-test.result == 'skipped')
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: ap_study_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Download backend artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-build
+          path: ./ap-study-backend/dist
+
+      - name: Install backend dependencies
+        run: |
+          cd ap-study-backend
+          npm ci
+
+      - name: Setup test database
+        run: |
+          cd ap-study-backend
+          npm run db:generate
+          npm run db:push
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/ap_study_test
+
+      - name: Start backend server
+        run: |
+          cd ap-study-backend
+          npm start &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/ap_study_test
+          PORT: 8000
+
+      - name: Health check backend
+        run: |
+          curl -f http://localhost:8000/ || exit 1
+          curl -f http://localhost:8000/doc || exit 1
+
+      - name: Install frontend dependencies
+        run: |
+          cd ap-study-app
+          npm ci
+
+      - name: Generate types from backend
+        run: |
+          cd ap-study-app
+          npm run generate-types
+        env:
+          BACKEND_URL: http://localhost:8000
+
+      - name: Run E2E tests (when implemented)
+        run: echo "E2E tests will be implemented in Phase C"
+
+  # セキュリティスキャン
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: NPM Audit - Frontend
+        run: |
+          cd ap-study-app
+          npm audit --audit-level=high
+
+      - name: NPM Audit - Backend
+        run: |
+          cd ap-study-backend
+          npm audit --audit-level=high
+
+  # 開発準備完了通知（main ブランチのみ）
+  development-ready:
+    name: Development Ready Check
+    runs-on: ubuntu-latest
+    needs: [frontend-test, backend-test, integration-test, security-scan]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Development ready notification
+        run: |
+          echo "✅ All development checks passed!"
+          echo "📱 Frontend: Build successful"
+          echo "📡 Backend: Build successful" 
+          echo "🔗 Integration: Tests passed"
+          echo "🔒 Security: Scan completed"
+          echo ""
+          echo "⚠️  Production deployment: DISABLED"
+          echo "📝 Ready for TDD feature development"
+          echo "🚀 Production setup required for deployment"
