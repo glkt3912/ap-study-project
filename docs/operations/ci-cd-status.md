@@ -5,6 +5,7 @@
 ### **✅ 有効化されているワークフロー**
 
 #### **開発CI（テスト・品質チェックのみ）**
+
 ```
 ✅ .github/workflows/ci.yml              # 統合CI（開発用）
 ✅ ap-study-app/.github/workflows/ci.yml # フロントエンドCI
@@ -12,6 +13,7 @@
 ```
 
 **実行内容**:
+
 - ✅ TypeScript ビルド・型チェック
 - ✅ ESLint コード品質チェック
 - ✅ Vitest テスト実行
@@ -21,6 +23,7 @@
 ### **❌ 無効化されているワークフロー**
 
 #### **本番デプロイ関連（全て無効化済み）**
+
 ```
 ❌ .github/workflows/disabled/deploy.yml    # 本番デプロイ（移動済み）
 ❌ Vercel自動デプロイ                        # フロントエンド本番デプロイ
@@ -29,6 +32,7 @@
 ```
 
 **無効化理由**:
+
 - 🚫 本番環境未整備
 - 🚫 Secrets未設定（VERCEL_TOKEN, RAILWAY_TOKEN等）
 - 🚫 ドメイン・環境変数未設定
@@ -37,6 +41,7 @@
 ## 🎯 **運用方針**
 
 ### **Phase 1: 開発CI（現在）**
+
 ```bash
 目的: 開発品質確保・TDD支援
 対象: main, develop ブランチ + PR
@@ -44,6 +49,7 @@
 ```
 
 ### **Phase 2: 本番環境準備（未来）**
+
 ```bash
 前提条件:
 1. 本番環境セットアップ完了
@@ -53,6 +59,7 @@
 ```
 
 ### **Phase 3: 本番CI/CD有効化（未来）**
+
 ```bash
 有効化内容:
 - Vercel本番デプロイ
@@ -67,6 +74,7 @@
 
 **トリガー**: push (main/develop), PR, manual
 **実行内容**:
+
 ```yaml
 jobs:
   detect-changes     # 変更検出（効率化）
@@ -78,6 +86,7 @@ jobs:
 ```
 
 **現在の設定**:
+
 - ✅ PostgreSQL テストDB自動構築
 - ✅ 依存関係キャッシュ
 - ✅ TDD支援統合
@@ -86,6 +95,7 @@ jobs:
 ### **フロントエンドCI (ap-study-app/.github/workflows/ci.yml)**
 
 **実行内容**:
+
 ```yaml
 jobs:
   test-and-build    # Vitest + ESLint + Build
@@ -94,12 +104,14 @@ jobs:
 ```
 
 **設定変更**:
+
 - ✅ `NEXT_PUBLIC_API_URL: http://localhost:8000` (開発用)
 - ❌ Vercelデプロイ完全無効化
 
 ### **バックエンドCI (ap-study-backend/.github/workflows/ci.yml)**
 
 **実行内容**:
+
 ```yaml
 jobs:
   test-and-build       # tsc + Prisma + TDD
@@ -109,6 +121,7 @@ jobs:
 ```
 
 **設定変更**:
+
 - ✅ TDD統合 (`npm run tdd:cycle`)
 - ❌ Railway/Vercelデプロイ完全無効化
 
@@ -117,12 +130,14 @@ jobs:
 ### **前提条件チェックリスト**
 
 #### **1. インフラ準備**
+
 - [ ] Vercel プロジェクト作成・設定
 - [ ] Supabase プロジェクト作成・設定
 - [ ] ドメイン取得・DNS設定
 - [ ] 環境変数設定完了
 
 #### **2. GitHub設定**
+
 - [ ] Repository Secrets設定
   - `VERCEL_TOKEN`
   - `SUPABASE_URL`
@@ -131,6 +146,7 @@ jobs:
 - [ ] 本番ブランチ保護設定
 
 #### **3. デプロイ戦略確定**
+
 - [ ] Vercel (フロントエンド) 設定確認
 - [ ] Supabase Edge Functions (バックエンド) 移行計画
 - [ ] データベース移行計画（Prisma → Supabase）
@@ -138,12 +154,14 @@ jobs:
 ### **有効化手順**
 
 #### **Step 1: デプロイワークフロー復元**
+
 ```bash
 # 無効化されたデプロイジョブのコメントアウト解除
 # 各ワークフローファイルの deploy-* ジョブを有効化
 ```
 
 #### **Step 2: 設定ファイル更新**
+
 ```bash
 # 本番環境用設定に変更
 NEXT_PUBLIC_API_URL: https://your-backend.supabase.co
@@ -151,6 +169,7 @@ DATABASE_URL: postgresql://...supabase...
 ```
 
 #### **Step 3: 段階的有効化**
+
 ```bash
 1. プレビュー環境（PR）のみ有効化
 2. ステージング環境テスト
@@ -160,11 +179,13 @@ DATABASE_URL: postgresql://...supabase...
 ## ⚠️ **注意事項**
 
 ### **現在の制限**
+
 - 🚫 **本番デプロイ厳禁**: Secrets未設定のため失敗確実
 - 🚫 **プレビュー環境なし**: 全デプロイワークフロー無効化済み
 - ✅ **開発CI正常**: テスト・ビルド・品質チェックは正常動作
 
 ### **運用ガイドライン**
+
 1. **開発フェーズ**: 現在の設定で継続開発
 2. **本番準備**: インフラ整備完了後にワークフロー有効化
 3. **段階的移行**: 一気に有効化せず、段階的にテスト
@@ -175,6 +196,7 @@ DATABASE_URL: postgresql://...supabase...
 ### **よくある問題**
 
 #### **CI失敗時**
+
 ```bash
 # 原因: Secrets未設定
 解決: 該当ワークフローが無効化済みか確認
@@ -187,6 +209,7 @@ DATABASE_URL: postgresql://...supabase...
 ```
 
 #### **デプロイエラー時（将来）**
+
 ```bash
 # 原因: Vercel設定エラー
 解決: vercel.json 設定・プロジェクト連携確認

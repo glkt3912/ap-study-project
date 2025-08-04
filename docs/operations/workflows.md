@@ -7,6 +7,7 @@
 ## 🎨 **フロントエンド ワークフロー** (`ap-study-app/.github/workflows/ci.yml`)
 
 ### 🔧 **トリガー条件**
+
 ```yaml
 on:
   push:
@@ -18,6 +19,7 @@ on:
 ### 🧪 **Job 1: test-and-build**
 
 #### **目的**: フロントエンドの品質保証・ビルド
+
 ```yaml
 steps:
   1. Checkout code               # ソースコード取得
@@ -32,11 +34,13 @@ steps:
 ```
 
 #### **環境変数**
+
 ```yaml
 NEXT_PUBLIC_API_URL: https://ap-study-backend.vercel.app
 ```
 
 #### **成果物**
+
 - ✅ ESLintエラー0件確認
 - ✅ テストカバレッジレポート
 - ✅ 本番ビルド済み`.next`ディレクトリ
@@ -44,6 +48,7 @@ NEXT_PUBLIC_API_URL: https://ap-study-backend.vercel.app
 ### 🔒 **Job 2: security-scan**
 
 #### **目的**: セキュリティ脆弱性検出
+
 ```yaml
 steps:
   1. Checkout code               # ソースコード取得
@@ -52,6 +57,7 @@ steps:
 ```
 
 #### **チェック項目**
+
 - 既知の脆弱性 (CVE)
 - 悪意のあるパッケージ
 - 古いバージョンの依存関係
@@ -60,6 +66,7 @@ steps:
 ### 🚀 **Job 3: deploy-production** (main ブランチのみ)
 
 #### **条件**: `github.ref == 'refs/heads/main'`
+
 ```yaml
 needs: [test-and-build, security-scan]  # 前段ジョブ成功が必須
 steps:
@@ -72,6 +79,7 @@ steps:
 ```
 
 #### **必要なSecrets**
+
 ```
 VERCEL_TOKEN=xxx               # Vercel認証トークン
 ```
@@ -79,6 +87,7 @@ VERCEL_TOKEN=xxx               # Vercel認証トークン
 ### 🔍 **Job 4: deploy-preview** (PR のみ)
 
 #### **条件**: `github.event_name == 'pull_request'`
+
 ```yaml
 steps:
   1-6. (同上)                    # 基本的な流れは本番と同じ
@@ -87,6 +96,7 @@ steps:
 ```
 
 #### **PR自動コメント例**
+
 ```
 🚀 **Preview deployed!**
 
@@ -100,6 +110,7 @@ steps:
 ## ⚙️ **バックエンド ワークフロー** (`ap-study-backend/.github/workflows/ci.yml`)
 
 ### 🔧 **トリガー条件**
+
 ```yaml
 on:
   push:
@@ -111,6 +122,7 @@ on:
 ### 🧪 **Job 1: test-and-build**
 
 #### **PostgreSQLサービス**
+
 ```yaml
 services:
   postgres:
@@ -129,6 +141,7 @@ services:
 ```
 
 #### **ビルド・テスト手順**
+
 ```yaml
 steps:
   1. Checkout code               # ソースコード取得
@@ -143,6 +156,7 @@ steps:
 ```
 
 #### **データベース接続**
+
 ```yaml
 env:
   DATABASE_URL: postgresql://postgres:password@localhost:5432/ap_study_test
@@ -153,6 +167,7 @@ env:
 ### 🚀 **Job 3: deploy-production** (main ブランチのみ)
 
 #### **Vercel デプロイ**
+
 ```yaml
 steps:
   1. Checkout code               # ソースコード取得
@@ -162,6 +177,7 @@ steps:
 ```
 
 #### **必要なSecrets**
+
 ```
 VERCEL_TOKEN=xxx              # Vercel認証トークン
 ```
@@ -169,6 +185,7 @@ VERCEL_TOKEN=xxx              # Vercel認証トークン
 ### 🔍 **Job 4: deploy-preview** (PR のみ)
 
 #### **PR自動コメント例**
+
 ```
 🚀 **Backend Preview deployed!**
 
@@ -183,6 +200,7 @@ VERCEL_TOKEN=xxx              # Vercel認証トークン
 ## 🎯 **統合ワークフロー** (`ap-study-project/.github/workflows/ci.yml`)
 
 ### 🔧 **トリガー条件**
+
 ```yaml
 on:
   workflow_dispatch:            # 手動実行
@@ -195,6 +213,7 @@ on:
 ```
 
 ### 🎛️ **手動実行オプション**
+
 ```yaml
 inputs:
   deploy_frontend:
@@ -208,7 +227,9 @@ inputs:
 ```
 
 ### 🔄 **Repository Dispatch**
+
 子リポジトリから親リポジトリに通知を送信:
+
 ```bash
 # 例: フロントエンドから通知
 curl -X POST \
@@ -235,6 +256,7 @@ curl -X POST \
 ## 🔄 **ワークフロー実行フロー**
 
 ### **通常開発フロー**
+
 ```mermaid
 graph TD
     A[開発者がコード変更] --> B{どのリポジトリ?}
@@ -249,6 +271,7 @@ graph TD
 ```
 
 ### **統合テストフロー**
+
 ```mermaid
 graph TD
     A[統合ワークフロー手動実行] --> B[フロントエンドヘルスチェック]
@@ -260,11 +283,13 @@ graph TD
 ## 🎯 **実行タイミング**
 
 ### **自動実行**
+
 - ✅ コードpush時 (各リポジトリ)
 - ✅ PR作成時 (プレビューデプロイ)
 - ✅ mainマージ時 (本番デプロイ)
 
 ### **手動実行**
+
 - 🔧 統合テスト実行
 - 🔧 緊急デプロイ
 - 🔧 ヘルスチェック
@@ -272,16 +297,19 @@ graph TD
 ## 📈 **期待される効果**
 
 ### **品質向上**
+
 - ✅ **自動テスト**: 100%カバレッジ測定
 - ✅ **セキュリティ**: 脆弱性0件保証
 - ✅ **型安全性**: TypeScriptエラー0件
 
 ### **開発効率**
+
 - ✅ **自動デプロイ**: 手動作業0分
 - ✅ **プレビュー**: PRごとに確認環境
 - ✅ **並列開発**: フロント・バック独立
 
 ### **運用安定性**
+
 - ✅ **ヘルスチェック**: 自動監視
 - ✅ **ロールバック**: 問題時即座復旧
 - ✅ **統合監視**: 全体状況把握
@@ -291,6 +319,7 @@ graph TD
 ## 🚀 **次のステップ**
 
 ### **各リポジトリでの実行**
+
 ```bash
 # 1. フロントエンド
 cd ap-study-app

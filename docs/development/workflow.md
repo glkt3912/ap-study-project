@@ -22,6 +22,7 @@ npm run dev (各ディレクトリで)
 ### 🧪 TDD段階的実装フロー (推奨)
 
 #### TDD-0: 要件定義 (5分)
+
 ```bash
 # TodoWriteで機能要件を明確化
 # 「StudyLog作成機能」例：
@@ -32,6 +33,7 @@ npm run dev (各ディレクトリで)
 ```
 
 #### TDD-1: Red (失敗テスト作成) (10分)
+
 ```bash
 cd ap-study-backend
 
@@ -45,6 +47,7 @@ touch src/__tests__/CreateStudyLog.test.ts
 ```
 
 #### TDD-2: Green (最小実装) (15分)
+
 ```bash
 # 1. テストが通る最小実装
 # - エンティティ定義
@@ -57,6 +60,7 @@ npm test CreateStudyLog.test.ts
 ```
 
 #### TDD-3: Refactor (リファクタリング) (10分)
+
 ```bash
 # 1. コード品質向上
 # - 適切な命名
@@ -69,6 +73,7 @@ npm run lint
 ```
 
 #### TDD-4: フロントエンド統合 (15分)
+
 ```bash
 cd ../ap-study-app
 
@@ -79,6 +84,7 @@ npm run test:run
 ```
 
 #### TDD-5: 完了確認 (5分)
+
 ```bash
 # TodoWriteで進捗更新
 # - [ ] ✅ バックエンドテスト通過
@@ -90,6 +96,7 @@ npm run test:run
 ### 🤖 Claude Code TDD支援
 
 #### TDD開始時のTodo設定
+
 ```typescript
 // Claude Codeでの自動TDD進捗管理
 TodoWrite: [
@@ -103,6 +110,7 @@ TodoWrite: [
 ```
 
 #### 段階的チェックポイント
+
 ```bash
 # TDD-1 (Red) 成功基準
 ✅ テストが失敗する（期待通り）
@@ -121,6 +129,7 @@ TodoWrite: [
 ```
 
 #### TDD実践例: StudyLog作成機能
+
 ```bash
 # 1. 要件をTodoに設定
 TodoWrite: "StudyLog作成: ユーザーが学習記録を作成できる"
@@ -149,12 +158,14 @@ Edit: src/components/StudyLogForm.tsx (UI)
 ### 🎯 TDD vs 従来開発の使い分け
 
 #### TDD推奨ケース
+
 - ✅ **新機能開発**: 仕様が明確な機能
 - ✅ **重要機能**: 品質が特に重要な機能
 - ✅ **複雑ロジック**: バグリスクが高い機能
 - ✅ **API設計**: 外部インターフェース
 
 #### 従来開発推奨ケース
+
 - ✅ **UI調整**: 見た目・レイアウト変更
 - ✅ **設定変更**: 環境設定・デプロイ設定
 - ✅ **実験的実装**: プロトタイプ・概念検証
@@ -163,6 +174,7 @@ Edit: src/components/StudyLogForm.tsx (UI)
 ### 🚀 効率的TDD実行順序 (Claude Code)
 
 #### 基本コマンドシーケンス
+
 ```bash
 # 1. Todo設定 → 2. Test → 3. Code → 4. Verify のサイクル
 
@@ -196,6 +208,7 @@ TodoWrite: 全体完了マーク
 #### よくある問題と対処
 
 **Red段階で詰まった場合:**
+
 ```bash
 # 1. 仕様を再確認
 Read: docs/specifications/requirements.md
@@ -209,6 +222,7 @@ TodoWrite: より小さな単位に分割
 ```
 
 **Green段階で詰まった場合:**
+
 ```bash
 # 1. 最小実装に戻る
 # → 仮実装・ダミーデータでも良い
@@ -224,11 +238,13 @@ Bash: 型エラー・ビルドエラー確認
 ### 🛠️ 機能開発フロー (従来)
 
 #### Step 1: 設計・計画 (5分)
+
 1. **マイルストーン確認**: `docs/specifications/milestones.md` で現在のタスク確認
 2. **要件確認**: `docs/specifications/requirements.md` で仕様確認
 3. **アーキテクチャ確認**: クリーンアーキテクチャに従った設計
 
 #### Step 2: バックエンド実装 (20-30分)
+
 ```bash
 cd ap-study-backend
 
@@ -247,6 +263,7 @@ curl http://localhost:8000/api/test-endpoint
 ```
 
 #### Step 3: フロントエンド実装 (20-30分)
+
 ```bash
 cd ap-study-app
 
@@ -263,6 +280,7 @@ npm run dev
 ```
 
 #### Step 4: 品質チェック (5-10分)
+
 ```bash
 # 4.1 Lint チェック
 cd ap-study-app && npm run lint
@@ -276,6 +294,7 @@ cd ../ap-study-backend && npm run build
 ```
 
 #### Step 5: コミット・文書更新 (5分)
+
 ```bash
 # 5.1 変更をコミット
 git add .
@@ -308,18 +327,21 @@ git commit -m "feat: implement [機能名]
 ### 必須チェック項目
 
 #### コードの品質
+
 - [ ] **TypeScript エラーなし**: 型安全性確保
 - [ ] **ESLint警告なし**: コード品質維持
 - [ ] **命名規則統一**: 英語での適切な命名
 - [ ] **コメント**: 複雑なロジックのみ最小限
 
 #### 機能の品質
+
 - [ ] **API動作確認**: 全エンドポイントのテスト
 - [ ] **UI動作確認**: 基本的なユーザー操作
 - [ ] **エラーハンドリング**: 適切なエラー表示
 - [ ] **ローディング状態**: UX向上のための待機表示
 
 #### アーキテクチャの品質
+
 - [ ] **層の分離**: 適切な責務分離
 - [ ] **依存性注入**: インターフェースの活用
 - [ ] **単一責任**: 各クラス・関数の役割明確化
@@ -342,12 +364,14 @@ time curl http://localhost:8000/api/study/plan
 ### よくある問題と対処法
 
 #### 1. CORS エラー
+
 ```bash
 # 原因: オリジン設定の問題
 # 対処: ap-study-backend/src/app.ts のCORS設定確認
 ```
 
 #### 2. TypeScript エラー
+
 ```bash
 # 原因: 型定義の不整合
 # 対処: 
@@ -356,6 +380,7 @@ npm run build
 ```
 
 #### 3. Prisma接続エラー
+
 ```bash
 # 原因: データベース設定の問題
 # 対処:
@@ -365,6 +390,7 @@ npm run db:push
 ```
 
 #### 4. Docker起動失敗
+
 ```bash
 # 原因: ポート競合・キャッシュ問題
 # 対処:
@@ -376,6 +402,7 @@ docker compose up --build
 ## 📊 進捗管理
 
 ### 日次確認項目
+
 - [ ] 本日完了予定タスクの進捗
 - [ ] 次回作業内容の明確化
 - [ ] 技術的課題の洗い出し

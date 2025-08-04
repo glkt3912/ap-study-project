@@ -22,47 +22,56 @@ ap-study-project/
 
 ## 🔍 **配置オプション検討**
 
-### **Option A: 現在の配置（統合リポジトリ）** 
+### **Option A: 現在の配置（統合リポジトリ）**
+
 ```
 ap-study-project/.github/workflows/
 ```
 
 **メリット:**
+
 - ✅ フロントエンド・バックエンド統合CI/CD
 - ✅ 単一ワークフローで連携テスト可能
 - ✅ 依存関係管理が容易
 - ✅ モノレポ構成に適している
 
 **デメリット:**
+
 - ❌ 各サブプロジェクトの独立性が低い
 - ❌ CI/CD実行時に全体をチェックアウト
 
 ### **Option B: 分散配置（各サブディレクトリ）**
+
 ```
 ap-study-app/.github/workflows/
 ap-study-backend/.github/workflows/
 ```
 
 **メリット:**
+
 - ✅ 各プロジェクトの独立性が高い
 - ✅ 部分的なCI/CD実行が可能
 - ✅ 将来の分離が容易
 
 **デメリット:**
+
 - ❌ 統合テストが複雑
 - ❌ ワークフロー重複・管理負荷
 - ❌ 依存関係管理が困難
 
 ### **Option C: 外部CI/CDサービス**
+
 ```
 CircleCI / GitLab CI / Azure DevOps
 ```
 
 **メリット:**
+
 - ✅ GitHub Actions制約回避
 - ✅ 高度なパイプライン機能
 
 **デメリット:**
+
 - ❌ 学習コスト増加
 - ❌ GitHub統合度が低下
 
@@ -73,6 +82,7 @@ CircleCI / GitLab CI / Azure DevOps
 現在の配置を継続しつつ、以下の改善を実施：
 
 #### **1. ワークフロー最適化**
+
 ```yaml
 # ci.yml での変更検出最適化
 on:
@@ -87,6 +97,7 @@ on:
 ```
 
 #### **2. ジョブ条件分岐**
+
 ```yaml
 frontend-test:
   if: contains(github.event.head_commit.modified, 'ap-study-app/')
@@ -96,6 +107,7 @@ backend-test:
 ```
 
 #### **3. キャッシュ最適化**
+
 ```yaml
 - uses: actions/cache@v4
   with:
@@ -110,13 +122,16 @@ backend-test:
 Phase Cでプロジェクト成熟時に検討：
 
 #### **分離準備**
+
 1. **シンボリックリンク活用**
+
 ```bash
 ap-study-app/.github -> ../../../.github/workflows/frontend/
 ap-study-backend/.github -> ../../../.github/workflows/backend/
 ```
 
 2. **共通ワークフロー抽出**
+
 ```yaml
 # .github/workflows/shared/
 ├── security-scan.yml
@@ -125,6 +140,7 @@ ap-study-backend/.github -> ../../../.github/workflows/backend/
 ```
 
 3. **マトリックス戦略**
+
 ```yaml
 strategy:
   matrix:
@@ -143,6 +159,7 @@ strategy:
 ### **モノレポCI/CD最適化**
 
 #### **1. 変更検出による効率化**
+
 ```yaml
 name: Smart CI/CD
 on:
@@ -179,6 +196,7 @@ jobs:
 ```
 
 #### **2. 並列実行最適化**
+
 ```yaml
 jobs:
   frontend-test:
@@ -198,6 +216,7 @@ jobs:
 ```
 
 #### **3. 依存関係管理**
+
 ```yaml
 integration-test:
   needs: [frontend-test, backend-test]
@@ -207,16 +226,19 @@ integration-test:
 ## 🚀 **実装ロードマップ**
 
 ### **Phase 1: 即時最適化** (現在)
+
 - ✅ 変更検出追加
 - ✅ ジョブ条件分岐
 - ✅ キャッシュ最適化
 
 ### **Phase 2: 中期改善** (Phase C時)
+
 - [ ] マトリックス戦略導入
 - [ ] 共通ワークフロー抽出
 - [ ] パフォーマンス監視強化
 
 ### **Phase 3: 最終最適化** (拡張時)
+
 - [ ] 分散配置検討
 - [ ] マイクロサービス対応
 - [ ] 高度な並列化
@@ -226,12 +248,14 @@ integration-test:
 ### **現在の方針: Option A継続が最適**
 
 **理由:**
+
 1. **プロジェクト性質**: 学習管理システムは密結合
 2. **開発効率**: 統合CI/CDの方が管理効率が高い
 3. **現在規模**: フロントエンド・バックエンド2つなら統合が適切
 4. **技術的制約**: GitHub Actions無料枠での最適化
 
 ### **改善方針:**
+
 1. **即時**: ワークフロー最適化実装
 2. **中期**: 条件分岐・並列化強化
 3. **長期**: 必要時に分散配置検討
