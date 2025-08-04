@@ -170,6 +170,24 @@ npx tsc --noEmit
 ANALYZE=true npm run build
 ```
 
+### 型定義生成 (重要)
+
+```bash
+cd ap-study-app
+
+# OpenAPI仕様書から自動型生成（推奨）
+npm run generate-types
+
+# 環境変数でバックエンドURL指定
+BACKEND_URL=http://localhost:8000 npm run generate-types
+
+# フォールバック動作テスト
+BACKEND_URL=http://invalid-url npm run generate-types
+
+# 生成された型ファイル確認
+cat src/types/api.ts
+```
+
 ---
 
 ## 📦 パッケージ管理
@@ -278,6 +296,7 @@ npx tsc --noEmit
 
 # フロントエンド品質チェック  
 cd ap-study-app
+npm run generate-types  # 型生成を最初に実行
 npm run lint
 npm run build
 npx tsc --noEmit

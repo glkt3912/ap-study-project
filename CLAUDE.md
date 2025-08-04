@@ -109,6 +109,21 @@ npm run db:push
 npm run db:studio
 ```
 
+### 🔧 型定義生成
+
+```bash
+cd ap-study-app
+
+# OpenAPI仕様書から型生成（推奨）
+npm run generate-types
+
+# 環境変数でバックエンドURL指定
+BACKEND_URL=http://localhost:8000 npm run generate-types
+
+# フォールバック動作確認
+BACKEND_URL=http://invalid-url npm run generate-types
+```
+
 ### 🧪 品質チェック・TDD
 
 ```bash
@@ -142,6 +157,7 @@ cd ap-study-backend && npm run build
 
 ### 🎯 マイルストーン 1: 基盤機能の完成（進行中）
 
+- [x] OpenAPI型生成システム実装（完了）
 - [ ] データベース初期化・マイグレーション実行
 - [ ] API-Frontend連携実装
 - [ ] 基本UI改善（ローディング、エラーハンドリング）
@@ -179,6 +195,7 @@ cd ap-study-backend && npm run build
 
 ### 開発支援・品質管理
 
+- **OpenAPI型生成** (自動TypeScript型定義生成)
 - **Vitest** (テストフレームワーク)
 - **TDD Helper Scripts** (自動コード生成)
 - **ESLint + Prettier** (コード品質)
