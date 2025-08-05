@@ -107,6 +107,13 @@ npm run db:push
 
 # Prisma Studio
 npm run db:studio
+
+# シードデータ投入
+npm run seed
+
+# 問題データID重複修正（必要時）
+node ../scripts/fix-question-ids.cjs        # 全年度修正
+node ../scripts/fix-question-ids.cjs 2025   # 特定年度のみ修正
 ```
 
 ### 🔧 型定義生成
@@ -267,6 +274,21 @@ TodoWrite: 進捗更新
 - **CORS エラー**: `ap-study-backend/src/app.ts` のCORS設定確認
 - **型エラー**: TypeScript 5.8+ と React 19 の互換性確認
 - **ビルドエラー**: Node.js 22.17.1 使用確認
+- **シードデータエラー**: 問題データID重複時は `fix-question-ids.cjs` 実行
+
+### 🛠️ データベース関連のトラブル解決
+
+```bash
+# PostgreSQL起動確認
+docker compose up postgres -d
+
+# シードデータ投入エラー時の対処手順
+cd ap-study-backend
+npm run build                                # TypeScript コンパイル
+docker compose up postgres -d               # PostgreSQL 起動
+node ../scripts/fix-question-ids.cjs        # ID重複修正
+npm run seed                                # シードデータ再投入
+```
 
 ### ログ確認
 
