@@ -255,11 +255,13 @@ TodoWrite: 進捗更新
 
 ## 🚨 重要な制約・注意事項
 
-### Git コミット規約
+### Git コミット・PR規約
 
 - **IMPORTANT**: コミットメッセージにClaude Code署名を含めない
 - 🤖 Generated with [Claude Code] および Co-Authored-By: Claude は除外する
-- Conventional Commits形式を使用（feat:, fix:, docs:など）
+- **コミットメッセージ**: 英語ベース・Conventional Commits形式を必須（feat:, fix:, docs:, improve:など）
+- **PRタイトル**: 日本語ベース・機能名に応じた自然な表現（例：「ユーザー認証機能 の開発」）
+- **PR本文**: 日本語ベース・詳細なレビューチェックリスト形式
 
 ### セキュリティ
 
@@ -333,6 +335,8 @@ docker compose logs ap-study-app
 ```bash
 # 完全自動PR開発フロー（推奨）
 ./scripts/pr-automation.sh flow [機能名]              # ブランチ作成→TDD→コミット→レビュー→PR
+# 例: ./scripts/pr-automation.sh flow "ユーザー認証機能"
+#     → PRタイトル: "ユーザー認証機能 の開発"
 
 # 段階的PR開発フロー  
 ./scripts/pr-automation.sh start [機能名]             # ブランチ作成・TDD初期化

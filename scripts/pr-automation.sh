@@ -120,7 +120,7 @@ init_tdd() {
     fi
 }
 
-# 自動コミット
+# 自動コミット（.claude/commands/commit.md準拠）
 auto_commit() {
     local commit_message="$1"
     local base_branch="${2:-$DEFAULT_BASE_BRANCH}"
@@ -130,20 +130,207 @@ auto_commit() {
         # ステージングエリアに追加
         git add .
         
-        # コミットメッセージが指定されていない場合は自動生成
+        # コミットメッセージが指定されていない場合は詳細分析して自動生成
         if [ -z "$commit_message" ]; then
-            log_info "コミットメッセージを自動生成中..."
-            local current_branch=$(get_current_branch)
-            local feature_name=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
-            commit_message="feat: implement $feature_name functionality"
+            log_info "コミットメッセージを詳細分析で自動生成中..."
+            commit_message=$(generate_commit_message "$base_branch")
         fi
         
-        # Conventional Commits形式でコミット
+        # Conventional Commits形式でコミット（Claude Code署名除外）
         git commit -m "$commit_message"
         log_success "コミット完了: $commit_message"
     else
         log_info "コミット対象の変更がありません。"
     fi
+}
+
+# コミットメッセージ自動生成（.claude/commands/commit.md完全準拠）
+generate_commit_message() {
+    local base_branch="${1:-$DEFAULT_BASE_BRANCH}"
+    local current_branch=$(get_current_branch)
+    
+    # 1. 詳細な変更検出・分析
+    local staged_files=($(git diff --cached --name-only))
+    local total_files=${#staged_files[@]}
+    local additions=$(git diff --cached --numstat | awk '{sum+=$1} END {print sum+0}')
+    local deletions=$(git diff --cached --numstat | awk '{sum+=$2} END {print sum+0}')
+    
+    # 2. 変更パターンの詳細分析
+    local has_new_files=$(git diff --cached --name-status | grep -c "^A" || echo 0)
+    local has_deleted_files=$(git diff --cached --name-status | grep -c "^D" || echo 0)
+    local has_modified_files=$(git diff --cached --name-status | grep -c "^M" || echo 0)
+    
+    # 3. 変更カテゴリの高度な判定
+    local category="feat"
+    local scope=""
+    local description=""
+    local is_breaking=false
+    
+    # 新機能実装の検出
+    if [[ $has_new_files -gt 0 ]] && [[ $additions -gt 50 ]]; then
+        # 新しいスクリプト・機能ファイルの追加
+        if printf '%s\n' "${staged_files[@]}" | grep -q "scripts/.*\.sh$"; then
+            category="feat"
+            description="add new automation script"
+        # 新しいコンポーネント・API追加
+        elif printf '%s\n' "${staged_files[@]}" | grep -q "components/\|routes/\|api/"; then
+            category="feat" 
+            description="add new functionality"
+        # 設定・ドキュメント追加
+        elif printf '%s\n' "${staged_files[@]}" | grep -q "\.md$\|\.json$\|config"; then
+            if [[ $additions -gt $((has_new_files * 20)) ]]; then
+                category="feat"
+                description="add comprehensive configuration"
+            else
+                category="docs"
+                description="add documentation"
+            fi
+        else
+            category="feat"
+            description="add new files"
+        fi
+    # 依存関係・ビルド変更
+    elif printf '%s\n' "${staged_files[@]}" | grep -q "package\.json\|package-lock\.json\|yarn\.lock\|Dockerfile\|docker-compose"; then
+        category="build"
+        description="update dependencies and build configuration"
+    # テスト関連
+    elif printf '%s\n' "${staged_files[@]}" | grep -q "test\|spec\|__tests__"; then
+        category="test"
+        if [[ $has_new_files -gt 0 ]]; then
+            description="add comprehensive test suite"
+        else
+            description="update existing tests"
+        fi
+    # パフォーマンス最適化
+    elif printf '%s\n' "${staged_files[@]}" | grep -q "performance\|optimization\|perf" || 
+         git diff --cached | grep -q "performance\|optimize\|efficient"; then
+        category="perf"
+        description="improve performance and optimization"
+    # バグ修正
+    elif printf '%s\n' "${staged_files[@]}" | grep -q "fix\|bug" || 
+         git diff --cached | grep -q "fix\|bug\|error\|issue"; then
+        category="fix"
+        description="resolve critical issues"
+    # リファクタリング
+    elif [[ $has_modified_files -gt $has_new_files ]] && [[ $deletions -gt 20 ]]; then
+        category="refactor"
+        description="improve code structure and maintainability"
+    # スタイル・フォーマット
+    elif printf '%s\n' "${staged_files[@]}" | grep -q "\.css\|\.scss\|styles" || 
+         [[ $additions -lt 10 && $deletions -lt 10 ]]; then
+        category="style"
+        description="update code formatting and styles"
+    # ドキュメント更新
+    elif printf '%s\n' "${staged_files[@]}" | grep -q "\.md$\|README\|docs/"; then
+        if [[ $total_files -eq 1 ]]; then
+            category="docs"
+            description="update documentation"
+        else
+            category="feat"
+            description="enhance documentation system"
+        fi
+    # 設定変更
+    elif printf '%s\n' "${staged_files[@]}" | grep -q "\.env\|config\|\.json$\|\.gitignore"; then
+        category="chore"
+        description="update project configuration"
+    else
+        # 複合的な変更の場合、主要な変更を分析
+        category="feat"
+        local feature_name=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
+        if [[ "$feature_name" != "main" && "$feature_name" != "$current_branch" ]]; then
+            description="implement $feature_name system"
+        else
+            description="add comprehensive functionality"
+        fi
+    fi
+    
+    # 4. スコープの詳細決定
+    local app_changes=0
+    local api_changes=0
+    local script_changes=0
+    local doc_changes=0
+    local config_changes=0
+    
+    for file in "${staged_files[@]}"; do
+        if [[ "$file" =~ ^ap-study-app/ ]]; then
+            ((app_changes++))
+        elif [[ "$file" =~ ^ap-study-backend/ ]]; then
+            ((api_changes++))
+        elif [[ "$file" =~ ^scripts/ ]]; then
+            ((script_changes++))
+        elif [[ "$file" =~ ^docs/|\.md$ ]]; then
+            ((doc_changes++))
+        elif [[ "$file" =~ ^\.|config|\.json$ ]]; then
+            ((config_changes++))
+        fi
+    done
+    
+    if [[ $script_changes -gt 0 ]] && [[ $script_changes -ge $app_changes ]] && [[ $script_changes -ge $api_changes ]]; then
+        scope="scripts"
+    elif [[ $app_changes -gt 0 ]] && [[ $api_changes -gt 0 ]]; then
+        scope="app,api"
+    elif [[ $app_changes -gt 0 ]]; then
+        scope="app"
+    elif [[ $api_changes -gt 0 ]]; then
+        scope="api"
+    elif [[ $doc_changes -gt 0 ]] && [[ $doc_changes -ge $config_changes ]]; then
+        scope="docs"
+    elif [[ $config_changes -gt 0 ]]; then
+        scope="config"
+    fi
+    
+    # 5. 破壊的変更の検出
+    if git diff --cached | grep -q "BREAKING CHANGE" || 
+       [[ $deletions -gt $additions ]] && [[ $deletions -gt 100 ]]; then
+        is_breaking=true
+    fi
+    
+    # 6. コミットメッセージ生成（Conventional Commits完全準拠）
+    local commit_msg="$category"
+    if [ -n "$scope" ]; then
+        commit_msg="$commit_msg($scope)"
+    fi
+    if [ "$is_breaking" = true ]; then
+        commit_msg="$commit_msg!"
+    fi
+    commit_msg="$commit_msg: $description"
+    
+    # 7. 詳細な本文追加（大規模変更時）
+    if [[ $total_files -gt 3 ]] || [[ $additions -gt 50 ]] || [[ $has_new_files -gt 0 ]]; then
+        local body=""
+        
+        # 新規追加ファイルの詳細
+        if [[ $has_new_files -gt 0 ]]; then
+            body="$body\n- Add $has_new_files new files"
+        fi
+        
+        # 主要な変更の説明
+        if printf '%s\n' "${staged_files[@]}" | grep -q "scripts/.*automation"; then
+            body="$body\n- Implement PR automation with Japanese localization"
+        fi
+        if printf '%s\n' "${staged_files[@]}" | grep -q "\.claude/"; then
+            body="$body\n- Integrate Claude Code commit analysis system"
+        fi
+        if printf '%s\n' "${staged_files[@]}" | grep -q "\.gitignore"; then
+            body="$body\n- Update gitignore for team collaboration"
+        fi
+        
+        # 統計情報
+        if [[ $additions -gt 100 ]] || [[ $deletions -gt 50 ]]; then
+            body="$body\n- Modified $total_files files (+$additions/-$deletions lines)"
+        fi
+        
+        if [ -n "$body" ]; then
+            commit_msg="$commit_msg$body"
+        fi
+    fi
+    
+    # 8. 破壊的変更のフッター
+    if [ "$is_breaking" = true ]; then
+        commit_msg="$commit_msg\n\nBREAKING CHANGE: Significant structural modifications"
+    fi
+    
+    echo "$commit_msg"
 }
 
 # 自己レビュー実行
@@ -231,7 +418,24 @@ create_pr() {
     git push -u origin "$current_branch"
     
     # PR本文生成（日本語ベース）
-    local pr_title=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
+    local feature_name=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
+    
+    # 日本語ベースのPRタイトル生成
+    local pr_title
+    case "$feature_name" in
+        *"自動化"*) pr_title="$feature_name システムの実装" ;;
+        *"機能"*) pr_title="$feature_name の開発" ;;
+        *"修正"*|*"バグ"*) pr_title="$feature_name の修正対応" ;;
+        *"改善"*|*"最適化"*) pr_title="$feature_name の改善" ;;
+        *"追加"*|*"拡充"*) pr_title="$feature_name の追加実装" ;;
+        *"統合"*|*"連携"*) pr_title="$feature_name の統合対応" ;;
+        *"テスト"*) pr_title="$feature_name の実装とテスト" ;;
+        *"データ"*) pr_title="$feature_name の実装" ;;
+        *"UI"*|*"画面"*) pr_title="$feature_name の実装" ;;
+        *"API"*) pr_title="$feature_name の開発" ;;
+        *) pr_title="$feature_name 機能の実装" ;;
+    esac
+    
     local pr_body=$(cat << EOF
 ## 📋 概要・実装内容
 $(git log --oneline "$base_branch"..."$current_branch" | sed 's/^[a-f0-9]* /- /')
@@ -266,7 +470,7 @@ EOF
 )
 
     # PR作成コマンド（日本語タイトル）
-    local pr_cmd="gh pr create --title \"feat: $pr_title の実装\" --body \"$pr_body\" --base \"$base_branch\""
+    local pr_cmd="gh pr create --title \"$pr_title\" --body \"$pr_body\" --base \"$base_branch\""
     
     if [ "$is_draft" = "true" ]; then
         pr_cmd="$pr_cmd --draft"
@@ -281,7 +485,7 @@ EOF
     local pr_url=$(gh pr view --json url --jq .url)
     echo -e "\n📋 PR作成結果:"
     echo "  🔗 PR URL: $pr_url"
-    echo "  📝 タイトル: feat: $pr_title の実装"
+    echo "  📝 タイトル: $pr_title"
     echo "  🎯 ベースブランチ: $base_branch"
     echo ""
     echo "💡 次のステップ: GitHubでPRを確認・マージ"

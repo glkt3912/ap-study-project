@@ -75,8 +75,8 @@ docker-compose.override.yml
 build/
 dist/
 
-# Claude specific files
-.claude
+# Claude specific files (個人設定のみ除外)
+.claude/settings.json
 
 # project specific
 ap-study-*
