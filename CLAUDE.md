@@ -54,10 +54,22 @@ ap-study-project/
 ./scripts/tdd-helper.sh status
 ```
 
-### **Claude Code TDD統合**
+### **Claude Code PR自動化統合（推奨）**
 
 ```typescript
-// 推奨実行順序
+// 完全自動PR開発フロー
+TodoWrite: 機能要件明確化
+Bash: "./scripts/pr-automation.sh flow [機能名]"       # ブランチ作成→TDD→コミット→レビュー→PR
+Edit: 詳細ビジネスロジック実装（ブランチ上で作業）
+Bash: "./scripts/pr-automation.sh commit"            # 追加変更のコミット
+Bash: "./scripts/pr-automation.sh review"            # 品質チェック
+Bash: "./scripts/pr-automation.sh pr"                # PR更新
+```
+
+### **Claude Code TDD統合（従来）**
+
+```typescript
+// TDD開発フロー
 TodoWrite: TDD計画設定
 Bash: "./scripts/tdd-helper.sh init [機能名]"
 Bash: "./scripts/tdd-helper.sh generate [機能名]"
@@ -311,7 +323,30 @@ docker compose logs ap-study-app
 
 **💡 Claude Code への指示**:
 
-### **🧪 TDD優先開発**
+### **🔄 PR自動化開発フロー（推奨）**
+
+- **新機能開発時**: PR自動化フローを使用してください
+- **完全自動化**: `./scripts/pr-automation.sh flow [機能名]` で一括実行
+- **段階的実行**: start → commit → review → pr の各段階で実行可能
+- **TDD統合**: TDD初期化も自動実行（--no-tddでスキップ可能）
+
+```bash
+# 完全自動PR開発フロー（推奨）
+./scripts/pr-automation.sh flow [機能名]              # ブランチ作成→TDD→コミット→レビュー→PR
+
+# 段階的PR開発フロー  
+./scripts/pr-automation.sh start [機能名]             # ブランチ作成・TDD初期化
+./scripts/pr-automation.sh commit "コミットメッセージ"   # 自動コミット
+./scripts/pr-automation.sh review                    # 自己レビュー・品質チェック
+./scripts/pr-automation.sh pr [--draft]              # PR作成
+./scripts/pr-automation.sh merge                     # PR承認・マージ
+./scripts/pr-automation.sh cleanup                   # ブランチクリーンアップ
+
+# 状況確認
+./scripts/pr-automation.sh status                    # 開発状況確認
+```
+
+### **🧪 TDD優先開発（従来）**
 
 - **新機能開発時**: 必ずTDDワークフローを使用してください
 - **コード生成**: `./scripts/tdd-helper.sh generate [機能名]` で自動実装
