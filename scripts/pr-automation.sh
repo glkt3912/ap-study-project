@@ -54,6 +54,7 @@ show_help() {
   commit [message]               自動コミット（Conventional Commits形式）
   review                         自己レビュー実行
   pr [--draft]                   PR作成（--draft: ドラフトPR）
+  update-pr                      既存PRの説明を最新実装内容で更新
   merge                          PR承認・マージ
   cleanup                        ブランチクリーンアップ
   status                         現在の開発状況確認
@@ -71,6 +72,7 @@ show_help() {
   $0 commit "feat: add exam data validation"
   $0 review
   $0 pr --draft
+  $0 update-pr
   $0 flow user-authentication
   
 Claude Code統合例:
@@ -423,41 +425,16 @@ self_review() {
     log_success "🎉 自己レビュー完了"
 }
 
-# PR作成
-create_pr() {
-    local is_draft="$1"
-    local base_branch="${2:-$DEFAULT_BASE_BRANCH}"
-    local current_branch=$(get_current_branch)
-    
-    # リモートにプッシュ
-    log_info "リモートにプッシュ中..."
-    git push -u origin "$current_branch"
-    
-    # PR本文生成（日本語ベース）
-    local feature_name=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
-    
-    # 日本語ベースのPRタイトル生成
-    local pr_title
-    case "$feature_name" in
-        *"自動化"*) pr_title="$feature_name システムの実装" ;;
-        *"機能"*) pr_title="$feature_name の開発" ;;
-        *"修正"*|*"バグ"*) pr_title="$feature_name の修正対応" ;;
-        *"改善"*|*"最適化"*) pr_title="$feature_name の改善" ;;
-        *"追加"*|*"拡充"*) pr_title="$feature_name の追加実装" ;;
-        *"統合"*|*"連携"*) pr_title="$feature_name の統合対応" ;;
-        *"テスト"*) pr_title="$feature_name の実装とテスト" ;;
-        *"データ"*) pr_title="$feature_name の実装" ;;
-        *"UI"*|*"画面"*) pr_title="$feature_name の実装" ;;
-        *"API"*) pr_title="$feature_name の開発" ;;
-        *) pr_title="$feature_name 機能の実装" ;;
-    esac
+# PR本文生成（共通関数）
+generate_pr_body() {
+    local base_branch="${1:-$DEFAULT_BASE_BRANCH}"
+    local current_branch="${2:-$(get_current_branch)}"
     
     # 詳細なファイル分析の実行
     local changed_files=$(git diff --name-only "$base_branch"..."$current_branch")
-    local added_functions=$(git diff "$base_branch"..."$current_branch" | grep "^+.*function\|^+.*const.*=\|^+.*class\|^+.*def " | head -10)
     local config_changes=$(echo "$changed_files" | grep -E "\.(json|md|sh|config|env)$" | head -5)
     
-    local pr_body=$(cat << EOF
+    cat << EOF
 ## 📋 実装内容詳細
 
 ### 🔧 追加・変更された機能
@@ -533,7 +510,39 @@ $(git show --name-only --pretty="" "$current_branch" | grep -E "\.(md|json|confi
 - [ ] ビルド・テスト自動化の確認
 - [ ] モニタリング・ログ出力の確認
 EOF
-)
+}
+
+# PR作成
+create_pr() {
+    local is_draft="$1"
+    local base_branch="${2:-$DEFAULT_BASE_BRANCH}"
+    local current_branch=$(get_current_branch)
+    
+    # リモートにプッシュ
+    log_info "リモートにプッシュ中..."
+    git push -u origin "$current_branch"
+    
+    # PR本文生成（日本語ベース）
+    local feature_name=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
+    
+    # 日本語ベースのPRタイトル生成
+    local pr_title
+    case "$feature_name" in
+        *"自動化"*) pr_title="$feature_name システムの実装" ;;
+        *"機能"*) pr_title="$feature_name の開発" ;;
+        *"修正"*|*"バグ"*) pr_title="$feature_name の修正対応" ;;
+        *"改善"*|*"最適化"*) pr_title="$feature_name の改善" ;;
+        *"追加"*|*"拡充"*) pr_title="$feature_name の追加実装" ;;
+        *"統合"*|*"連携"*) pr_title="$feature_name の統合対応" ;;
+        *"テスト"*) pr_title="$feature_name の実装とテスト" ;;
+        *"データ"*) pr_title="$feature_name の実装" ;;
+        *"UI"*|*"画面"*) pr_title="$feature_name の実装" ;;
+        *"API"*) pr_title="$feature_name の開発" ;;
+        *) pr_title="$feature_name 機能の実装" ;;
+    esac
+    
+    # PR本文生成
+    local pr_body=$(generate_pr_body "$base_branch" "$current_branch")
 
     # PR作成コマンド（日本語タイトル）
     local pr_cmd="gh pr create --title \"$pr_title\" --body \"$pr_body\" --base \"$base_branch\""
@@ -559,6 +568,70 @@ EOF
     log_success "🎉 PR作成完了"
     
     return 0
+}
+
+# PR説明更新
+update_pr() {
+    local base_branch="${1:-$DEFAULT_BASE_BRANCH}"
+    local current_branch=$(get_current_branch)
+    
+    # 現在のブランチがPRブランチかチェック
+    if [[ ! "$current_branch" =~ ^feature/ ]]; then
+        log_error "現在のブランチ（$current_branch）はfeatureブランチではありません"
+        exit 1
+    fi
+    
+    log_info "🔄 PR説明を最新実装内容で更新中..."
+    
+    # 最新の本文生成
+    local updated_pr_body=$(generate_pr_body "$base_branch" "$current_branch")
+    
+    # PRのタイトルも再生成
+    local feature_name=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
+    local pr_title
+    case "$feature_name" in
+        *"自動化"*) pr_title="$feature_name システムの実装" ;;
+        *"機能"*) pr_title="$feature_name の開発" ;;
+        *"修正"*|*"バグ"*) pr_title="$feature_name の修正対応" ;;
+        *"改善"*|*"最適化"*) pr_title="$feature_name の改善" ;;
+        *"追加"*|*"拡充"*) pr_title="$feature_name の追加実装" ;;
+        *"統合"*|*"連携"*) pr_title="$feature_name の統合対応" ;;
+        *"テスト"*) pr_title="$feature_name の実装とテスト" ;;
+        *"データ"*) pr_title="$feature_name の実装" ;;
+        *"UI"*|*"画面"*) pr_title="$feature_name の実装" ;;
+        *"API"*) pr_title="$feature_name の開発" ;;
+        *) pr_title="$feature_name 機能の実装" ;;
+    esac
+    
+    # 一時ファイルにPR本文を保存
+    local temp_file=$(mktemp)
+    echo "$updated_pr_body" > "$temp_file"
+    
+    # PR更新実行（タイトルと本文）
+    if gh pr edit --title "$pr_title" --body-file "$temp_file"; then
+        log_success "✅ PR説明更新完了"
+        echo ""
+        echo "📋 更新内容:"
+        echo "  📝 タイトル: $pr_title"
+        echo "  📄 本文: 最新の実装内容で更新"
+        echo "  📊 変更統計: 最新のコミットまで反映"
+        echo "  🔧 実装詳細: 新しい関数・設定変更を反映"
+        echo ""
+        echo "🔗 PR URL: $(gh pr view --json url -q .url 2>/dev/null || echo '取得中...')"
+        echo ""
+        echo "💡 次のステップ:"
+        echo "  - GitHubでPR内容を確認"
+        echo "  - レビュー依頼・マージ準備"
+    else
+        log_error "❌ PR説明の更新に失敗しました"
+        echo "💡 対処方法:"
+        echo "  - 現在のブランチに対応するPRが存在するか確認"
+        echo "  - gh CLI の認証状況を確認（gh auth status）"
+        echo "  - PRが既にマージされていないか確認"
+    fi
+    
+    # 一時ファイルクリーンアップ
+    rm -f "$temp_file"
 }
 
 # PR承認・マージ
@@ -1008,6 +1081,9 @@ main() {
             ;;
         pr)
             create_pr "$is_draft" "$base_branch"
+            ;;
+        update-pr)
+            update_pr "$base_branch"
             ;;
         merge)
             merge_pr "$base_branch"
