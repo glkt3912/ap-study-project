@@ -80,3 +80,14 @@ dist/
 
 # project specific
 ap-study-*
+
+# Exam data sources (confidential/copyrighted content)
+exam-data-source/
+*.pdf
+*.docx
+raw-exam-data/
+original-exam-files/
+
+# Generated temporary files for data processing
+temp-exam-processing/
+exam-conversion-temp/
