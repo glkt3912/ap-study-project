@@ -452,36 +452,65 @@ create_pr() {
         *) pr_title="$feature_name 機能の実装" ;;
     esac
     
+    # 詳細なファイル分析の実行
+    local changed_files=$(git diff --name-only "$base_branch"..."$current_branch")
+    local added_functions=$(git diff "$base_branch"..."$current_branch" | grep "^+.*function\|^+.*const.*=\|^+.*class\|^+.*def " | head -10)
+    local config_changes=$(echo "$changed_files" | grep -E "\.(json|md|sh|config|env)$" | head -5)
+    
     local pr_body=$(cat << EOF
-## 📋 概要・実装内容
-$(git log --oneline "$base_branch"..."$current_branch" | sed 's/^[a-f0-9]* /- /')
+## 📋 実装内容詳細
 
-## 🧪 テスト計画
-- [ ] 基本機能の動作確認
-- [ ] エラーハンドリングの確認
-- [ ] レスポンシブデザインの確認
-- [ ] アクセシビリティの確認
-- [ ] 関連機能への影響確認
+### 🔧 追加・変更された機能
+$(git log --oneline "$base_branch"..."$current_branch" | sed 's/^[a-f0-9]* /- **/')
 
-## 📊 変更統計
+### 📁 変更ファイル詳細
+$(echo "$changed_files" | while read file; do
+  if [ -n "$file" ]; then
+    lines_added=$(git diff --numstat "$base_branch"..."$current_branch" -- "$file" | cut -f1)
+    lines_removed=$(git diff --numstat "$base_branch"..."$current_branch" -- "$file" | cut -f2)
+    echo "- **$file**: +$lines_added -$lines_removed"
+  fi
+done)
+
+### ⚙️ 主要な実装詳細
+$(git diff "$base_branch"..."$current_branch" | grep -E "^\+.*function|^\+.*const.*=|^\+.*class|^\+.*export" | head -8 | sed 's/^+/- 追加: /' | sed 's/^  *//')
+
+### 📊 変更統計
+\`\`\`
 $(git diff --stat "$base_branch"..."$current_branch")
+\`\`\`
 
-## 🔍 レビューチェックリスト
-- [ ] コード品質・可読性の確認
-- [ ] セキュリティ観点での確認
-- [ ] パフォーマンスへの影響確認
-- [ ] ドキュメント更新の確認
-- [ ] テストカバレッジの確認
-- [ ] 型定義・エラーハンドリングの適切性
-- [ ] 既存機能への影響がないことの確認
+### 🛠 設定・スクリプト変更
+$(if [ -n "$config_changes" ]; then echo "$config_changes" | sed 's/^/- /'; else echo "- なし"; fi)
 
-## 💡 備考・注意事項
-<!-- 特記事項があれば記載 -->
+## 🧪 テスト・検証計画
+- [ ] 新機能の基本動作確認
+- [ ] エッジケース・エラーハンドリング確認
+- [ ] 既存機能への影響確認
+- [ ] パフォーマンス・レスポンス確認
+- [ ] ドキュメント・コメントの整合性確認
 
-## 🚀 デプロイ前の確認事項
-- [ ] データベース変更がある場合、マイグレーション手順の確認
-- [ ] 環境変数の追加・変更がある場合の設定確認
-- [ ] 本番環境での動作に問題がないことの確認
+## 🔍 技術的レビューポイント
+- [ ] **アーキテクチャ**: クリーンアーキテクチャ準拠確認
+- [ ] **型安全性**: TypeScript strict mode対応確認
+- [ ] **セキュリティ**: 入力検証・認証・認可の適切性
+- [ ] **パフォーマンス**: N+1問題・メモリリーク等の確認
+- [ ] **保守性**: コードの可読性・拡張性の確認
+- [ ] **テスト**: ユニット・統合テストのカバレッジ確認
+
+## 🎯 影響範囲・依存関係
+$(git show --name-only --pretty="" "$current_branch" | grep -E "\.(ts|tsx|js|jsx)$" | head -5 | sed 's/^/- **コード**: /')
+$(git show --name-only --pretty="" "$current_branch" | grep -E "\.(md|json|config)$" | head -3 | sed 's/^/- **設定**: /')
+
+## 💡 実装上の技術的判断・注意事項
+<!-- 技術的選択の理由、制約事項、今後の改善点等を記載 -->
+
+## 🚀 デプロイ・運用上の注意事項
+- [ ] 環境変数・設定ファイルの更新確認
+- [ ] データベーススキーマ変更の確認
+- [ ] 依存関係（package.json等）の変更確認
+- [ ] ビルド・テスト自動化の確認
+- [ ] モニタリング・ログ出力の確認
 EOF
 )
 
