@@ -27,39 +27,56 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files_yaml: |
+            frontend:
+              - 'ap-study-app/**'
+            backend:
+              - 'ap-study-backend/**'
+
       - name: Setup Node.js
+        if: steps.changed-files.outputs.frontend_any_changed == 'true' || steps.changed-files.outputs.backend_any_changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies - Frontend
+        if: steps.changed-files.outputs.frontend_any_changed == 'true'
         run: |
           cd ap-study-app
           npm ci
 
       - name: Install dependencies - Backend
+        if: steps.changed-files.outputs.backend_any_changed == 'true'
         run: |
           cd ap-study-backend
           npm ci
 
       - name: Run ESLint with annotations
+        if: steps.changed-files.outputs.frontend_any_changed == 'true'
         run: |
           cd ap-study-app
           npm run lint -- --format=@microsoft/eslint-formatter-sarif --output-file=eslint-results.sarif
         continue-on-error: true
 
       - name: Upload ESLint results
+        if: steps.changed-files.outputs.frontend_any_changed == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ap-study-app/eslint-results.sarif
           wait-for-processing: true
 
       - name: TypeScript check - Frontend
+        if: steps.changed-files.outputs.frontend_any_changed == 'true'
         run: |
           cd ap-study-app
           npx tsc --noEmit
 
       - name: TypeScript check - Backend
+        if: steps.changed-files.outputs.backend_any_changed == 'true'
         run: |
           cd ap-study-backend
           npx tsc --noEmit
@@ -145,28 +162,37 @@ jobs:
   coverage-analysis:
     name: Test Coverage Analysis
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.changed_files, 'ap-study-app/')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: 'ap-study-app/**'
+
       - name: Setup Node.js
+        if: steps.changed-files.outputs.any_changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           cd ap-study-app
           npm ci
 
       - name: Run tests with coverage
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           cd ap-study-app
           npm run test:coverage
 
       - name: Coverage comment
+        if: steps.changed-files.outputs.any_changed == 'true'
         uses: romeovs/lcov-reporter-action@v0.3.1
         with:
           lcov-file: ./ap-study-app/coverage/lcov.info
@@ -200,34 +226,44 @@ jobs:
   performance-test:
     name: Performance Test
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.changed_files, 'ap-study-app/')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: 'ap-study-app/**'
+
       - name: Setup Node.js
+        if: steps.changed-files.outputs.any_changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           cd ap-study-app
           npm ci
 
       - name: Build for performance test
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           cd ap-study-app
           npm run build
 
       - name: Bundle size analysis
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           cd ap-study-app
           npx next-bundle-analyzer --no-open
         continue-on-error: true
 
       - name: Performance budget check
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           cd ap-study-app/.next/static/chunks
           total_size=$(du -sb . | cut -f1)
