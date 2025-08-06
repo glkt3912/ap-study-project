@@ -452,36 +452,65 @@ create_pr() {
         *) pr_title="$feature_name 機能の実装" ;;
     esac
     
+    # 詳細なファイル分析の実行
+    local changed_files=$(git diff --name-only "$base_branch"..."$current_branch")
+    local added_functions=$(git diff "$base_branch"..."$current_branch" | grep "^+.*function\|^+.*const.*=\|^+.*class\|^+.*def " | head -10)
+    local config_changes=$(echo "$changed_files" | grep -E "\.(json|md|sh|config|env)$" | head -5)
+    
     local pr_body=$(cat << EOF
-## 📋 概要・実装内容
-$(git log --oneline "$base_branch"..."$current_branch" | sed 's/^[a-f0-9]* /- /')
+## 📋 実装内容詳細
 
-## 🧪 テスト計画
-- [ ] 基本機能の動作確認
-- [ ] エラーハンドリングの確認
-- [ ] レスポンシブデザインの確認
-- [ ] アクセシビリティの確認
-- [ ] 関連機能への影響確認
+### 🔧 追加・変更された機能
+$(git log --oneline "$base_branch"..."$current_branch" | sed 's/^[a-f0-9]* /- **/')
 
-## 📊 変更統計
+### 📁 変更ファイル詳細
+$(echo "$changed_files" | while read file; do
+  if [ -n "$file" ]; then
+    lines_added=$(git diff --numstat "$base_branch"..."$current_branch" -- "$file" | cut -f1)
+    lines_removed=$(git diff --numstat "$base_branch"..."$current_branch" -- "$file" | cut -f2)
+    echo "- **$file**: +$lines_added -$lines_removed"
+  fi
+done)
+
+### ⚙️ 主要な実装詳細
+$(git diff "$base_branch"..."$current_branch" | grep -E "^\+.*function|^\+.*const.*=|^\+.*class|^\+.*export" | head -8 | sed 's/^+/- 追加: /' | sed 's/^  *//')
+
+### 📊 変更統計
+\`\`\`
 $(git diff --stat "$base_branch"..."$current_branch")
+\`\`\`
 
-## 🔍 レビューチェックリスト
-- [ ] コード品質・可読性の確認
-- [ ] セキュリティ観点での確認
-- [ ] パフォーマンスへの影響確認
-- [ ] ドキュメント更新の確認
-- [ ] テストカバレッジの確認
-- [ ] 型定義・エラーハンドリングの適切性
-- [ ] 既存機能への影響がないことの確認
+### 🛠 設定・スクリプト変更
+$(if [ -n "$config_changes" ]; then echo "$config_changes" | sed 's/^/- /'; else echo "- なし"; fi)
 
-## 💡 備考・注意事項
-<!-- 特記事項があれば記載 -->
+## 🧪 テスト・検証計画
+- [ ] 新機能の基本動作確認
+- [ ] エッジケース・エラーハンドリング確認
+- [ ] 既存機能への影響確認
+- [ ] パフォーマンス・レスポンス確認
+- [ ] ドキュメント・コメントの整合性確認
 
-## 🚀 デプロイ前の確認事項
-- [ ] データベース変更がある場合、マイグレーション手順の確認
-- [ ] 環境変数の追加・変更がある場合の設定確認
-- [ ] 本番環境での動作に問題がないことの確認
+## 🔍 技術的レビューポイント
+- [ ] **アーキテクチャ**: クリーンアーキテクチャ準拠確認
+- [ ] **型安全性**: TypeScript strict mode対応確認
+- [ ] **セキュリティ**: 入力検証・認証・認可の適切性
+- [ ] **パフォーマンス**: N+1問題・メモリリーク等の確認
+- [ ] **保守性**: コードの可読性・拡張性の確認
+- [ ] **テスト**: ユニット・統合テストのカバレッジ確認
+
+## 🎯 影響範囲・依存関係
+$(git show --name-only --pretty="" "$current_branch" | grep -E "\.(ts|tsx|js|jsx)$" | head -5 | sed 's/^/- **コード**: /')
+$(git show --name-only --pretty="" "$current_branch" | grep -E "\.(md|json|config)$" | head -3 | sed 's/^/- **設定**: /')
+
+## 💡 実装上の技術的判断・注意事項
+<!-- 技術的選択の理由、制約事項、今後の改善点等を記載 -->
+
+## 🚀 デプロイ・運用上の注意事項
+- [ ] 環境変数・設定ファイルの更新確認
+- [ ] データベーススキーマ変更の確認
+- [ ] 依存関係（package.json等）の変更確認
+- [ ] ビルド・テスト自動化の確認
+- [ ] モニタリング・ログ出力の確認
 EOF
 )
 
@@ -611,6 +640,257 @@ full_auto_flow() {
     log_success "完全自動フロー完了"
 }
 
+# =================================================================
+# マルチリポジトリ対応関数
+# =================================================================
+
+# マルチリポジトリ機能開発開始
+multi_start_feature() {
+    local feature_name="$1"
+    local base_branch="${2:-$DEFAULT_BASE_BRANCH}"
+    local no_tdd="$3"
+    local target_repo="$4"
+    
+    if [ -z "$feature_name" ]; then
+        log_error "機能名を指定してください"
+        show_help
+        exit 1
+    fi
+    
+    log_info "🚀 マルチリポジトリ機能開発開始: $feature_name"
+    
+    local repos_to_process=()
+    if [[ -n "$target_repo" ]]; then
+        repos_to_process=("$target_repo")
+    else
+        repos_to_process=("root" "frontend" "backend")
+    fi
+    
+    for repo in "${repos_to_process[@]}"; do
+        if [[ -d "${REPOSITORIES[$repo]}" ]]; then
+            log_info "📁 ${REPO_DESCRIPTIONS[$repo]} で処理開始"
+            execute_in_repo "$repo" "./scripts/pr-automation.sh start '$feature_name' --base '$base_branch' $([ "$no_tdd" = "true" ] && echo "--no-tdd")" || {
+                # ルートリポジトリの場合は直接実行
+                if [[ "$repo" == "root" ]]; then
+                    start_feature "$feature_name" "$base_branch" "$no_tdd"
+                else
+                    log_warning "${REPO_DESCRIPTIONS[$repo]} でスクリプト実行失敗、git操作を直接実行"
+                    execute_in_repo "$repo" "git checkout '$base_branch' && git pull origin '$base_branch' && git checkout -b 'feature/$feature_name' && git push -u origin 'feature/$feature_name'"
+                fi
+            }
+        else
+            log_warning "${REPO_DESCRIPTIONS[$repo]} ディレクトリが見つかりません: ${REPOSITORIES[$repo]}"
+        fi
+    done
+    
+    log_success "マルチリポジトリ機能開発開始完了"
+}
+
+# マルチリポジトリ自動コミット（差分分析機能付き）
+multi_auto_commit() {
+    local feature_name="$1"
+    local base_branch="${2:-$DEFAULT_BASE_BRANCH}"
+    local target_repo="$3"
+    
+    log_info "💾 マルチリポジトリインテリジェント自動コミット"
+    
+    local repos_to_process=()
+    if [[ -n "$target_repo" ]]; then
+        repos_to_process=("$target_repo")
+    else
+        repos_to_process=("root" "frontend" "backend")
+    fi
+    
+    local processed_count=0
+    local skipped_count=0
+    
+    for repo in "${repos_to_process[@]}"; do
+        if [[ -d "${REPOSITORIES[$repo]}" ]]; then
+            log_info "📁 ${REPO_DESCRIPTIONS[$repo]} で差分分析・コミット処理"
+            
+            # 差分分析実行
+            local changes_info
+            changes_info=$(analyze_repo_changes "$repo")
+            
+            if [[ "$changes_info" == "no_changes" ]]; then
+                log_info "📝 ${REPO_DESCRIPTIONS[$repo]} に変更なし、スキップ"
+                ((skipped_count++))
+                continue
+            fi
+            
+            # インテリジェントなコミットメッセージ生成
+            local smart_message
+            smart_message=$(generate_smart_commit_message "$repo" "$feature_name" "$changes_info")
+            
+            if [[ -n "$smart_message" ]]; then
+                log_info "📝 コミットメッセージ: $smart_message"
+                
+                # コミット実行
+                if execute_in_repo "$repo" "git add -A && git commit -m '$smart_message'"; then
+                    log_success "✅ ${REPO_DESCRIPTIONS[$repo]} コミット完了"
+                    ((processed_count++))
+                else
+                    log_warning "⚠️ ${REPO_DESCRIPTIONS[$repo]} コミット失敗"
+                fi
+            else
+                log_warning "⚠️ ${REPO_DESCRIPTIONS[$repo]} コミットメッセージ生成失敗"
+            fi
+        fi
+    done
+    
+    log_info "📊 コミット結果: 処理完了=$processed_count, スキップ=$skipped_count"
+    log_success "マルチリポジトリインテリジェント自動コミット完了"
+}
+
+# マルチリポジトリPR作成（差分分析機能付き）
+multi_create_pr() {
+    local is_draft="$1"
+    local base_branch="${2:-$DEFAULT_BASE_BRANCH}"
+    local target_repo="$3"
+    local feature_name="$4"
+    
+    log_info "📋 マルチリポジトリインテリジェントPR作成"
+    
+    local repos_to_process=()
+    if [[ -n "$target_repo" ]]; then
+        repos_to_process=("$target_repo")
+    else
+        repos_to_process=("root" "frontend" "backend")
+    fi
+    
+    local pr_created_count=0
+    local skipped_count=0
+    
+    for repo in "${repos_to_process[@]}"; do
+        if [[ -d "${REPOSITORIES[$repo]}" ]]; then
+            log_info "📁 ${REPO_DESCRIPTIONS[$repo]} でPR作成判定"
+            
+            # 現在のブランチがfeatureブランチかチェック
+            local current_branch
+            current_branch=$(execute_in_repo "$repo" "git branch --show-current" 2>/dev/null)
+            
+            if [[ ! "$current_branch" =~ ^feature/ ]]; then
+                log_info "📝 ${REPO_DESCRIPTIONS[$repo]} はfeatureブランチではない、スキップ"
+                ((skipped_count++))
+                continue
+            fi
+            
+            # ベースブランチとの差分をチェック
+            local has_commits
+            has_commits=$(execute_in_repo "$repo" "git log $base_branch..$current_branch --oneline" 2>/dev/null)
+            
+            if [[ -z "$has_commits" ]]; then
+                log_info "📝 ${REPO_DESCRIPTIONS[$repo]} に新しいコミットなし、スキップ"
+                ((skipped_count++))
+                continue
+            fi
+            
+            # 差分分析でPRタイトル・説明生成
+            local changes_info
+            local pr_title=""
+            local pr_body=""
+            
+            # 最新のコミットメッセージを取得（すでにインテリジェントなメッセージ）
+            local latest_commit_msg
+            latest_commit_msg=$(execute_in_repo "$repo" "git log -1 --pretty=format:'%s'" 2>/dev/null)
+            
+            if [[ -n "$latest_commit_msg" ]]; then
+                pr_title="$latest_commit_msg"
+                pr_body="## Summary
+This PR implements $feature_name in the ${REPO_DESCRIPTIONS[$repo]}.
+
+## Changes
+$(execute_in_repo "$repo" "git log $base_branch..$current_branch --oneline" 2>/dev/null | sed 's/^/- /')
+
+## Files Changed
+$(execute_in_repo "$repo" "git diff --name-only $base_branch..$current_branch" 2>/dev/null | sed 's/^/- /')
+
+🤖 Generated with [Claude Code](https://claude.ai/code)"
+            else
+                pr_title="$feature_name の開発"
+                pr_body="## Summary
+This PR implements $feature_name.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)"
+            fi
+            
+            log_info "📝 PRタイトル: $pr_title"
+            
+            # PR作成実行
+            if execute_in_repo "$repo" "gh pr create --title '$pr_title' --body '$pr_body' $([ "$is_draft" = "true" ] && echo "--draft")"; then
+                log_success "✅ ${REPO_DESCRIPTIONS[$repo]} PR作成完了"
+                ((pr_created_count++))
+            else
+                log_warning "⚠️ ${REPO_DESCRIPTIONS[$repo]} PR作成失敗"
+            fi
+        fi
+    done
+    
+    log_info "📊 PR作成結果: 作成完了=$pr_created_count, スキップ=$skipped_count"
+    log_success "マルチリポジトリインテリジェントPR作成完了"
+}
+
+# マルチリポジトリ状況確認
+multi_check_status() {
+    local base_branch="${1:-$DEFAULT_BASE_BRANCH}"
+    local target_repo="$2"
+    
+    log_info "🔍 マルチリポジトリ状況確認"
+    
+    local repos_to_process=()
+    if [[ -n "$target_repo" ]]; then
+        repos_to_process=("$target_repo")
+    else
+        repos_to_process=("root" "frontend" "backend")
+    fi
+    
+    for repo in "${repos_to_process[@]}"; do
+        if [[ -d "${REPOSITORIES[$repo]}" ]]; then
+            echo
+            log_info "📁 ${REPO_DESCRIPTIONS[$repo]} の状況:"
+            echo "====================================="
+            execute_in_repo "$repo" "git status --short; echo '---'; git log --oneline -3; echo '---'; git branch -v"
+        fi
+    done
+    
+    log_success "マルチリポジトリ状況確認完了"
+}
+
+# マルチリポジトリ完全自動フロー（差分分析機能付き）
+multi_full_auto_flow() {
+    local feature_name="$1"
+    local base_branch="${2:-$DEFAULT_BASE_BRANCH}"
+    local no_tdd="$3"
+    local target_repo="$4"
+    
+    log_info "🚀 マルチリポジトリインテリジェント完全自動フロー開始: $feature_name"
+    
+    # 1. 機能開発開始
+    log_info "📋 Step 1: 機能開発ブランチ作成"
+    multi_start_feature "$feature_name" "$base_branch" "$no_tdd" "$target_repo"
+    
+    # 2. インテリジェント自動コミット（差分分析付き）
+    log_info "📋 Step 2: インテリジェント差分分析・自動コミット"
+    multi_auto_commit "$feature_name" "$base_branch" "$target_repo"
+    
+    # 3. インテリジェントPR作成（差分分析付き）
+    log_info "📋 Step 3: インテリジェントPR作成"
+    multi_create_pr "false" "$base_branch" "$target_repo" "$feature_name"
+    
+    log_success "🎉 マルチリポジトリインテリジェント完全自動フロー完了"
+    
+    # 4. サマリー表示
+    log_info "📊 フロー完了サマリー:"
+    echo "  🔄 処理されたリポジトリ: $([ -n "$target_repo" ] && echo "$target_repo" || echo "all (root, frontend, backend)")"
+    echo "  📝 機能名: $feature_name"
+    echo "  🌿 ベースブランチ: $base_branch"
+    echo "  🧪 TDD初期化: $([ "$no_tdd" = "true" ] && echo "無効" || echo "有効")"
+    echo ""
+    echo "💡 次のステップ:"
+    echo "  - 各リポジトリで具体的な実装作業を行う"
+    echo "  - ./scripts/pr-automation.sh multi-status で状況確認"
+    echo "  - ./scripts/pr-automation.sh multi-merge で全PR一括マージ"
+}
 # 機能開発開始
 start_feature() {
     local feature_name="$1"

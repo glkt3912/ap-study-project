@@ -92,6 +92,29 @@ Bash: "./scripts/pr-automation.sh pr"                # PR更新
 // 🔄 ap-study-backend/: 別リポジトリでAPI・DB・過去問データ実装
 ```
 
+**🎯 対応リポジトリ:**
+- **ルート** (`/`): ドキュメント・スクリプト・設定管理
+- **フロントエンド** (`/ap-study-app`): Next.js + React UI実装
+- **バックエンド** (`/ap-study-backend`): Hono.js + Prisma API実装
+
+**🔄 自動ブランチ削除:**
+- PRマージ後、リモート・ローカルブランチを自動削除
+- `gh pr merge --squash --delete-branch` + ローカルクリーンアップ
+- 完全なワークフロー自動化を実現
+
+**🧠 インテリジェント差分分析:**
+- **変更検出**: 各リポジトリの変更有無を自動判定
+- **コンテキスト分析**: ファイル種別によるCommit Type自動選択
+- **スマートメッセージ**: 変更内容に基づくコミットメッセージ自動生成
+- **効率化**: 変更のないリポジトリは自動スキップ
+
+```bash
+# 差分分析例
+# フロントエンド: .tsx/.jsx → "feat(ui): add new components and UI features"
+# バックエンド: .ts API → "feat(api): add new API endpoints and services"  
+# ルート: scripts → "feat(scripts): enhance development automation"
+# ルート: docs → "docs(project): update project documentation"
+```
 ### **Claude Code TDD統合（従来）**
 
 ```typescript
