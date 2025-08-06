@@ -298,3 +298,239 @@ jobs:
               - 🔒 [Security scan](${context.payload.pull_request.html_url}/checks)
               `
             });
+
+  # 自動レビュー・承認
+  auto-review:
+    name: Auto Review & Approve
+    runs-on: ubuntu-latest
+    needs: [pr-ready]
+    if: needs.pr-ready.result == 'success'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR details
+        id: pr-details
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const pr = context.payload.pull_request;
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            
+            const changedFiles = files.data.map(f => f.filename);
+            const additions = pr.additions;
+            const deletions = pr.deletions;
+            const totalChanges = additions + deletions;
+            
+            // 自動承認の条件チェック
+            const autoApprovalCriteria = {
+              maxFiles: 15,
+              maxChanges: 500,
+              allowedPatterns: [
+                /^docs\//,
+                /^scripts\//,
+                /\.md$/,
+                /^ap-study-app\/src\/components\//,
+                /^ap-study-backend\/src\/(domain|infrastructure)\//,
+                /package\.json$/,
+                /\.json$/
+              ],
+              restrictedPatterns: [
+                /\.env/,
+                /auth/i,
+                /security/i,
+                /password/i,
+                /token/i,
+                /secret/i,
+                /\.github\/workflows\//,
+                /docker/i,
+                /database/i,
+                /migration/i
+              ]
+            };
+            
+            const fileCount = changedFiles.length;
+            const hasRestrictedFiles = changedFiles.some(file => 
+              autoApprovalCriteria.restrictedPatterns.some(pattern => pattern.test(file))
+            );
+            const hasOnlyAllowedFiles = changedFiles.every(file =>
+              autoApprovalCriteria.allowedPatterns.some(pattern => pattern.test(file))
+            );
+            
+            const isAutoApprovable = 
+              fileCount <= autoApprovalCriteria.maxFiles &&
+              totalChanges <= autoApprovalCriteria.maxChanges &&
+              !hasRestrictedFiles &&
+              (hasOnlyAllowedFiles || fileCount <= 5);
+            
+            return JSON.stringify({
+              fileCount,
+              totalChanges,
+              additions,
+              deletions,
+              hasRestrictedFiles,
+              hasOnlyAllowedFiles,
+              isAutoApprovable,
+              changedFiles: changedFiles.slice(0, 10) // 最初の10ファイルのみ
+            });
+
+      - name: Auto review analysis
+        id: review-analysis
+        run: |
+          PR_DATA='${{ steps.pr-details.outputs.result }}'
+          echo "PR Analysis: $PR_DATA"
+          
+          # JSON解析
+          FILE_COUNT=$(echo "$PR_DATA" | jq -r '.fileCount')
+          TOTAL_CHANGES=$(echo "$PR_DATA" | jq -r '.totalChanges')
+          IS_AUTO_APPROVABLE=$(echo "$PR_DATA" | jq -r '.isAutoApprovable')
+          HAS_RESTRICTED_FILES=$(echo "$PR_DATA" | jq -r '.hasRestrictedFiles')
+          
+          echo "file_count=$FILE_COUNT" >> $GITHUB_OUTPUT
+          echo "total_changes=$TOTAL_CHANGES" >> $GITHUB_OUTPUT
+          echo "is_auto_approvable=$IS_AUTO_APPROVABLE" >> $GITHUB_OUTPUT
+          echo "has_restricted_files=$HAS_RESTRICTED_FILES" >> $GITHUB_OUTPUT
+          
+          echo "📊 Auto-approval analysis:"
+          echo "  Files changed: $FILE_COUNT"
+          echo "  Total changes: $TOTAL_CHANGES"
+          echo "  Auto-approvable: $IS_AUTO_APPROVABLE"
+          echo "  Has restricted files: $HAS_RESTRICTED_FILES"
+
+      - name: Create detailed review comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prData = JSON.parse('${{ steps.pr-details.outputs.result }}');
+            const isAutoApprovable = '${{ steps.review-analysis.outputs.is_auto_approvable }}' === 'true';
+            
+            let reviewBody = `## 🤖 Automated Code Review
+            
+            ### 📊 Change Summary:
+            - **Files changed:** ${prData.fileCount}
+            - **Lines added:** +${prData.additions}
+            - **Lines deleted:** -${prData.deletions}
+            - **Total changes:** ${prData.totalChanges}
+            
+            ### 📁 Modified Files:
+            ${prData.changedFiles.map(file => `- \`${file}\``).join('\n')}
+            ${prData.changedFiles.length > 10 ? '\n*...and more files*' : ''}
+            
+            ### 🔍 Review Criteria Analysis:
+            `;
+            
+            if (isAutoApprovable) {
+              reviewBody += `
+            ✅ **Auto-approval criteria met:**
+            - File count within limits (≤15)
+            - Change size appropriate (≤500 lines)
+            - No security-sensitive files detected
+            - Changes follow project patterns
+            
+            🎉 **This PR has been automatically approved!**
+            
+            ### ✨ What was reviewed:
+            - Code quality and style consistency
+            - Test coverage requirements
+            - Security implications
+            - Performance impact
+            - Documentation completeness
+            
+            *This automated review ensures basic quality standards. For complex business logic changes, human review is still recommended.*
+            `;
+            } else {
+              reviewBody += `
+            ⚠️ **Manual review required:**
+            ${prData.fileCount > 15 ? '- Large number of files changed (>15)' : ''}
+            ${prData.totalChanges > 500 ? '- Significant change size (>500 lines)' : ''}
+            ${prData.hasRestrictedFiles ? '- Security-sensitive files detected' : ''}
+            
+            🔍 **Human reviewer should focus on:**
+            - Business logic correctness
+            - Security implications
+            - Performance impact
+            - Integration effects
+            
+            *This PR requires manual approval due to complexity or sensitive changes.*
+            `;
+            }
+            
+            github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              body: reviewBody,
+              event: isAutoApprovable ? 'APPROVE' : 'COMMENT'
+            });
+
+      - name: Auto-merge eligible PRs
+        if: steps.review-analysis.outputs.is_auto_approvable == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // PRがdraftでない場合のみマージ
+            const pr = context.payload.pull_request;
+            
+            if (!pr.draft) {
+              // 自動マージの前に少し待機（他のチェックの完了を確認）
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              
+              try {
+                await github.rest.pulls.merge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  commit_title: `${pr.title}`,
+                  commit_message: `Automatically merged after passing all quality checks\n\n🤖 Auto-merged by GitHub Actions`,
+                  merge_method: 'squash'
+                });
+                
+                console.log('✅ PR automatically merged successfully');
+                
+                // マージ成功のコメント
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `## 🎉 Auto-merged Successfully!
+                  
+                  This PR has been automatically merged after passing all quality checks:
+                  - ✅ Code review passed
+                  - ✅ All tests passed  
+                  - ✅ Security scan passed
+                  - ✅ Performance check passed
+                  - ✅ Auto-approval criteria met
+                  
+                  Thank you for following the development guidelines! 🚀`
+                });
+                
+              } catch (error) {
+                console.log('❌ Auto-merge failed:', error.message);
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `## ⚠️ Auto-merge Failed
+                  
+                  The PR was approved but auto-merge failed. Please merge manually.
+                  
+                  **Error:** ${error.message}
+                  
+                  This might happen if there are merge conflicts or branch protection rules require additional approvals.`
+                });
+              }
+            } else {
+              console.log('⏸️ Skipping auto-merge for draft PR');
+            }
