@@ -12,29 +12,49 @@
 
 ## 🏗️ プロジェクト構造
 
+**⚠️ 重要: マルチリポジトリ構成**
+
 ```
-ap-study-project/
-├── ap-study-app/          # Next.js フロントエンド
-│   ├── src/
-│   │   ├── app/           # App Router
-│   │   ├── components/    # React コンポーネント
-│   │   ├── data/          # 初期データ・型定義
-│   │   └── lib/           # API クライアント
-│   ├── package.json       # engines: node ^22.17.1
-│   └── Dockerfile         # node:22-slim
-├── ap-study-backend/      # Hono.js バックエンド
-│   ├── src/
-│   │   ├── domain/        # ドメイン層（エンティティ、ユースケース）
-│   │   └── infrastructure/# インフラ層（DB、Web）
-│   ├── package.json       # engines: node ^22.17.1
-│   └── Dockerfile         # node:22-slim
-├── docs/                 # プロジェクト文書（整理済み）
-│   ├── development/      # 開発ワークフロー・TDD
-│   ├── operations/       # CI/CD・運用
-│   ├── specifications/   # 要件・仕様
-│   └── deployment/       # デプロイ設定
-└── scripts/              # TDD・開発支援スクリプト
+ap-study-project/          # 📁 ルートリポジトリ（このリポジトリ）
+├── .gitignore             # ap-study-* を除外設定
+├── docs/                  # プロジェクト文書（ルート管理）
+│   ├── development/       # 開発ワークフロー・TDD
+│   ├── operations/        # CI/CD・運用
+│   ├── specifications/    # 要件・仕様・進捗管理
+│   └── deployment/        # デプロイ設定
+├── scripts/               # 開発支援・過去問データ管理スクリプト
+├── exam-data-reports/     # データ分析レポート（自動生成）
+└── CLAUDE.md              # このファイル
 ```
+
+**🔗 別リポジトリ管理 (.gitignoreで除外済み)**
+
+```
+ap-study-app/              # 📁 フロントエンドリポジトリ（別管理）
+├── src/
+│   ├── app/               # Next.js 15 App Router
+│   ├── components/        # React 19 コンポーネント
+│   ├── data/              # 初期データ・型定義
+│   └── lib/               # API クライアント
+├── package.json           # engines: node ^22.17.1
+└── Dockerfile             # node:22-slim
+
+ap-study-backend/          # 📁 バックエンドリポジトリ（別管理）
+├── src/
+│   ├── domain/            # ドメイン層（エンティティ、ユースケース）
+│   └── infrastructure/    # インフラ層（DB・Web・過去問データ）
+│       └── database/seeds/# 🔴 過去問データファイル（別リポジトリ）
+├── package.json           # engines: node ^22.17.1
+└── Dockerfile             # node:22-slim
+```
+
+### 📋 リポジトリ別責任範囲
+
+| リポジトリ | 管理対象 | Claude Codeでの作業範囲 |
+|----------|---------|---------------------|
+| **ルート** | ドキュメント・スクリプト・設定 | ✅ 全範囲対応 |
+| **フロントエンド** | UI・コンポーネント・型定義 | 🔄 別途作業必要 |
+| **バックエンド** | API・DB・過去問データ | 🔄 別途作業必要 |
 
 ## 🧪 TDD開発ワークフロー（推奨）
 
@@ -56,14 +76,20 @@ ap-study-project/
 
 ### **Claude Code PR自動化統合（推奨）**
 
+**⚠️ 重要: マルチリポジトリ対応**
+
 ```typescript
-// 完全自動PR開発フロー
+// ルートリポジトリでの完全自動PR開発フロー
 TodoWrite: 機能要件明確化
 Bash: "./scripts/pr-automation.sh flow [機能名]"       # ブランチ作成→TDD→コミット→レビュー→PR
-Edit: 詳細ビジネスロジック実装（ブランチ上で作業）
+Edit: ドキュメント・スクリプト実装（ルートリポジトリ範囲）
 Bash: "./scripts/pr-automation.sh commit"            # 追加変更のコミット
 Bash: "./scripts/pr-automation.sh review"            # 品質チェック
 Bash: "./scripts/pr-automation.sh pr"                # PR更新
+
+// フロントエンド・バックエンドは別途作業が必要
+// 🔄 ap-study-app/    : 別リポジトリでUI・API連携実装
+// 🔄 ap-study-backend/: 別リポジトリでAPI・DB・過去問データ実装
 ```
 
 ### **Claude Code TDD統合（従来）**
@@ -257,11 +283,43 @@ TodoWrite: 進捗更新
 
 ### Git コミット・PR規約
 
-- **IMPORTANT**: コミットメッセージにClaude Code署名を含めない
-- 🤖 Generated with [Claude Code] および Co-Authored-By: Claude は除外する
-- **コミットメッセージ**: 英語ベース・Conventional Commits形式を必須（feat:, fix:, docs:, improve:など）
-- **PRタイトル**: 日本語ベース・機能名に応じた自然な表現（例：「ユーザー認証機能 の開発」）
-- **PR本文**: 日本語ベース・詳細なレビューチェックリスト形式
+#### **📝 コミットメッセージ規約**
+
+- **言語**: 英語必須
+- **形式**: Conventional Commits完全準拠
+- **構造**: `type(scope): description`
+  - `feat:` 新機能追加
+  - `fix:` バグ修正
+  - `docs:` ドキュメント更新
+  - `style:` コードスタイル・フォーマット
+  - `refactor:` リファクタリング
+  - `test:` テスト追加・修正
+  - `chore:` 設定・ツール・その他
+- **説明**: 動詞原形で開始、簡潔で明確
+- **本文**: 必要に応じて詳細説明（英語）
+
+#### **🚫 Claude Code署名除外（重要）**
+
+- **絶対禁止**: `🤖 Generated with [Claude Code]`
+- **絶対禁止**: `Co-Authored-By: Claude <noreply@anthropic.com>`
+- **理由**: プロジェクト固有のGit履歴ポリシー
+
+#### **📋 PR（Pull Request）規約**
+
+- **PRタイトル**: 日本語ベース・機能名に応じた自然な表現
+  - 例：「過去問データ管理システム の開発」
+  - 例：「認証機能強化 の実装」
+- **PR本文**: 日本語ベース・詳細レビューチェックリスト
+  - ## Summary（概要）
+  - ## Test plan（テスト計画）  
+  - ## Breaking changes（破壊的変更）
+  - ## Related issues（関連Issue）
+
+#### **🔀 マージ戦略**
+
+- **Squash and merge**: コミット履歴の整理
+- **Linear history**: 直線的な履歴維持
+- **Protected branches**: main ブランチ保護
 
 ### セキュリティ
 
