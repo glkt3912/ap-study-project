@@ -54,6 +54,7 @@ show_help() {
   commit [message]               自動コミット（Conventional Commits形式）
   review                         自己レビュー実行
   pr [--draft]                   PR作成（--draft: ドラフトPR）
+  update-pr                      既存PRの説明を最新実装内容で更新
   merge                          PR承認・マージ
   cleanup                        ブランチクリーンアップ
   status                         現在の開発状況確認
@@ -71,6 +72,7 @@ show_help() {
   $0 commit "feat: add exam data validation"
   $0 review
   $0 pr --draft
+  $0 update-pr
   $0 flow user-authentication
   
 Claude Code統合例:
@@ -423,6 +425,172 @@ self_review() {
     log_success "🎉 自己レビュー完了"
 }
 
+# PR本文生成（Claude分析ベース）
+generate_pr_body() {
+    local base_branch="${1:-$DEFAULT_BASE_BRANCH}"
+    local current_branch="${2:-$(get_current_branch)}"
+    
+    # 基本的な変更情報収集
+    local changed_files=$(git diff --name-only "$base_branch"..."$current_branch")
+    local file_count=$(echo "$changed_files" | wc -l)
+    local commits=$(git log --oneline "$base_branch"..."$current_branch")
+    local commit_count=$(echo "$commits" | wc -l)
+    
+    # ファイル種別分析
+    local script_changes=$(echo "$changed_files" | grep -E "\.(sh|js|ts)$" | wc -l)
+    local doc_changes=$(echo "$changed_files" | grep -E "\.(md|txt)$" | wc -l)
+    local config_changes=$(echo "$changed_files" | grep -E "\.(json|yaml|config)$" | wc -l)
+    
+    # 主要な機能キーワード抽出
+    local feature_keywords=$(echo "$commits" | grep -oE "(feat|add|implement|create|enhance|improve|fix)" | head -5 | tr '\n' ',' | sed 's/,$//')
+    
+    # ブランチ名から機能推測
+    local branch_feature=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
+    
+    # コミットパターン分析
+    local commit_types=$(echo "$commits" | grep -oE "^[a-f0-9]+ (feat|fix|docs|style|refactor|test|chore|perf|build|ci|revert|improve|add|update|remove)" | cut -d' ' -f2 | sort | uniq -c | sort -nr)
+    local primary_type=$(echo "$commit_types" | head -1 | awk '{print $2}')
+    local type_count=$(echo "$commit_types" | head -1 | awk '{print $1}')
+    
+    # ファイル種別による影響分析
+    local frontend_files=$(echo "$changed_files" | grep -E "\.(tsx?|jsx?|css|scss|html)$" | wc -l)
+    local backend_files=$(echo "$changed_files" | grep -E "\.ts$|\.js$" | grep -v test | wc -l)
+    local test_files=$(echo "$changed_files" | grep -E "\.test\.|\.spec\.|test/" | wc -l)
+    local doc_files=$(echo "$changed_files" | grep -E "\.(md|txt|rst)$" | wc -l)
+    local config_files=$(echo "$changed_files" | grep -E "\.(json|yaml|yml|toml|ini|conf|config)$" | wc -l)
+    local script_files=$(echo "$changed_files" | grep -E "\.(sh|bash|zsh)$" | wc -l)
+    
+    # 主要なコミットタイプに基づく説明生成
+    local pr_summary=""
+    local pr_motivation=""
+    local testing_focus=""
+    
+    case "$primary_type" in
+        "feat")
+            pr_summary="新機能の追加"
+            pr_motivation="システムの機能性向上とユーザー体験の改善を目的として、新たな機能を実装しました。"
+            testing_focus="新機能の正常動作確認と既存機能への影響がないことの確認"
+            ;;
+        "fix")
+            pr_summary="バグ修正・問題解決"
+            pr_motivation="発見された問題を修正し、システムの安定性と信頼性を向上させます。"
+            testing_focus="修正内容の動作確認と問題が再発しないことの確認"
+            ;;
+        "docs")
+            pr_summary="ドキュメント更新"
+            pr_motivation="ドキュメントの品質向上により、開発効率とプロジェクトの理解しやすさを改善します。"
+            testing_focus="ドキュメントの内容が正確で分かりやすいことの確認"
+            ;;
+        "refactor")
+            pr_summary="リファクタリング・コード改善"
+            pr_motivation="コードの品質、可読性、保守性を向上させるためのリファクタリングを実施しました。"
+            testing_focus="機能に変更がないことと、コード品質が向上していることの確認"
+            ;;
+        "improve"|"update")
+            pr_summary="既存機能の改善・更新"
+            pr_motivation="既存機能の使いやすさ、パフォーマンス、品質を向上させるための改善を行いました。"
+            testing_focus="改善内容が正しく動作し、ユーザー体験が向上していることの確認"
+            ;;
+        "test")
+            pr_summary="テスト追加・テスト改善"
+            pr_motivation="テストカバレッジの向上と品質保証の強化を目的として、テストの追加・改善を行いました。"
+            testing_focus="テストが正しく実行され、適切にテストケースをカバーしていることの確認"
+            ;;
+        *)
+            pr_summary="システム改善・機能追加"
+            pr_motivation="システムの品質向上と機能性の拡充を目的とした変更を実施しました。"
+            testing_focus="変更内容の動作確認と既存機能への影響がないことの確認"
+            ;;
+    esac
+    
+    cat << EOF
+## 🎯 概要
+
+この PR では **${pr_summary}** を行いました。
+
+${pr_motivation}
+
+## 🔧 変更内容
+
+### 主要な変更
+$(git log --oneline "$base_branch"..."$current_branch" | sed 's/^[a-f0-9]* /- /' | head -5)
+
+### 影響範囲
+$(
+if [[ $frontend_files -gt 0 ]]; then
+    echo "- **フロントエンド**: ${frontend_files}ファイル （UI・ユーザー体験の改善）"
+fi
+if [[ $backend_files -gt 0 ]]; then
+    echo "- **バックエンド**: ${backend_files}ファイル （サーバーサイドロジック・API）"
+fi
+if [[ $script_files -gt 0 ]]; then
+    echo "- **スクリプト**: ${script_files}ファイル （開発・運用ツール）"
+fi
+if [[ $doc_files -gt 0 ]]; then
+    echo "- **ドキュメント**: ${doc_files}ファイル （説明・仕様書）"
+fi
+if [[ $config_files -gt 0 ]]; then
+    echo "- **設定**: ${config_files}ファイル （システム設定・環境設定）"
+fi
+if [[ $test_files -gt 0 ]]; then
+    echo "- **テスト**: ${test_files}ファイル （品質保証・テストケース）"
+fi
+)
+
+### 変更規模
+\`\`\`
+$(git diff --stat "$base_branch"..."$current_branch" 2>/dev/null)
+\`\`\`
+
+## ✅ 動作確認・テスト
+
+- [ ] ${testing_focus}
+- [ ] エラーハンドリングが適切に動作することの確認
+$(if [[ $frontend_files -gt 0 ]]; then echo "- [ ] UI/UXに問題がないことの確認"; fi)
+$(if [[ $backend_files -gt 0 ]]; then echo "- [ ] API・サーバーサイド機能の動作確認"; fi)
+$(if [[ $config_files -gt 0 ]]; then echo "- [ ] 設定変更が正しく反映されることの確認"; fi)
+- [ ] パフォーマンスに悪影響がないことの確認
+
+## 🤔 レビューで確認してほしい点
+
+- **実装の妥当性**: 要件を満たす適切な実装になっているか
+- **コード品質**: 可読性・保守性・拡張性が確保されているか
+$(if [[ $backend_files -gt 0 ]] || [[ $frontend_files -gt 0 ]]; then echo "- **セキュリティ**: セキュリティ上の問題がないか"; fi)
+$(if [[ $primary_type == "feat" ]] || [[ $primary_type == "improve" ]]; then echo "- **ユーザー体験**: 使いやすさが向上しているか"; fi)
+$(if [[ $test_files -gt 0 ]]; then echo "- **テスト品質**: テストケースが適切に設計されているか"; fi)
+
+## 🚀 マージ後の期待効果
+
+$(
+case "$primary_type" in
+    "feat")
+        echo "- 新機能により、ユーザーの利便性が向上します
+- システムの機能性が拡充され、より多くの用途に対応可能になります"
+        ;;
+    "fix")
+        echo "- 問題が解決され、システムの安定性が向上します
+- ユーザーが安心してシステムを利用できるようになります"
+        ;;
+    "docs")
+        echo "- ドキュメントの品質向上により、開発・利用効率が向上します
+- プロジェクトの理解しやすさが改善されます"
+        ;;
+    "refactor"|"improve")
+        echo "- コード品質が向上し、今後の開発・保守が効率的になります
+- システムのパフォーマンスや使いやすさが改善されます"
+        ;;
+    *)
+        echo "- システム全体の品質と機能性が向上します
+- より安定した、使いやすいシステムになります"
+        ;;
+esac
+)
+
+---
+💬 **質問・相談**: 実装内容について質問や懸念点があれば、お気軽にコメントでお知らせください。
+EOF
+}
+
 # PR作成
 create_pr() {
     local is_draft="$1"
@@ -452,67 +620,8 @@ create_pr() {
         *) pr_title="$feature_name 機能の実装" ;;
     esac
     
-    # 詳細なファイル分析の実行
-    local changed_files=$(git diff --name-only "$base_branch"..."$current_branch")
-    local added_functions=$(git diff "$base_branch"..."$current_branch" | grep "^+.*function\|^+.*const.*=\|^+.*class\|^+.*def " | head -10)
-    local config_changes=$(echo "$changed_files" | grep -E "\.(json|md|sh|config|env)$" | head -5)
-    
-    local pr_body=$(cat << EOF
-## 📋 実装内容詳細
-
-### 🔧 追加・変更された機能
-$(git log --oneline "$base_branch"..."$current_branch" | sed 's/^[a-f0-9]* /- **/')
-
-### 📁 変更ファイル詳細
-$(echo "$changed_files" | while read file; do
-  if [ -n "$file" ]; then
-    lines_added=$(git diff --numstat "$base_branch"..."$current_branch" -- "$file" | cut -f1)
-    lines_removed=$(git diff --numstat "$base_branch"..."$current_branch" -- "$file" | cut -f2)
-    echo "- **$file**: +$lines_added -$lines_removed"
-  fi
-done)
-
-### ⚙️ 主要な実装詳細
-$(git diff "$base_branch"..."$current_branch" | grep -E "^\+.*function|^\+.*const.*=|^\+.*class|^\+.*export" | head -8 | sed 's/^+/- 追加: /' | sed 's/^  *//')
-
-### 📊 変更統計
-\`\`\`
-$(git diff --stat "$base_branch"..."$current_branch")
-\`\`\`
-
-### 🛠 設定・スクリプト変更
-$(if [ -n "$config_changes" ]; then echo "$config_changes" | sed 's/^/- /'; else echo "- なし"; fi)
-
-## 🧪 テスト・検証計画
-- [ ] 新機能の基本動作確認
-- [ ] エッジケース・エラーハンドリング確認
-- [ ] 既存機能への影響確認
-- [ ] パフォーマンス・レスポンス確認
-- [ ] ドキュメント・コメントの整合性確認
-
-## 🔍 技術的レビューポイント
-- [ ] **アーキテクチャ**: クリーンアーキテクチャ準拠確認
-- [ ] **型安全性**: TypeScript strict mode対応確認
-- [ ] **セキュリティ**: 入力検証・認証・認可の適切性
-- [ ] **パフォーマンス**: N+1問題・メモリリーク等の確認
-- [ ] **保守性**: コードの可読性・拡張性の確認
-- [ ] **テスト**: ユニット・統合テストのカバレッジ確認
-
-## 🎯 影響範囲・依存関係
-$(git show --name-only --pretty="" "$current_branch" | grep -E "\.(ts|tsx|js|jsx)$" | head -5 | sed 's/^/- **コード**: /')
-$(git show --name-only --pretty="" "$current_branch" | grep -E "\.(md|json|config)$" | head -3 | sed 's/^/- **設定**: /')
-
-## 💡 実装上の技術的判断・注意事項
-<!-- 技術的選択の理由、制約事項、今後の改善点等を記載 -->
-
-## 🚀 デプロイ・運用上の注意事項
-- [ ] 環境変数・設定ファイルの更新確認
-- [ ] データベーススキーマ変更の確認
-- [ ] 依存関係（package.json等）の変更確認
-- [ ] ビルド・テスト自動化の確認
-- [ ] モニタリング・ログ出力の確認
-EOF
-)
+    # PR本文生成
+    local pr_body=$(generate_pr_body "$base_branch" "$current_branch")
 
     # PR作成コマンド（日本語タイトル）
     local pr_cmd="gh pr create --title \"$pr_title\" --body \"$pr_body\" --base \"$base_branch\""
@@ -538,6 +647,70 @@ EOF
     log_success "🎉 PR作成完了"
     
     return 0
+}
+
+# PR説明更新
+update_pr() {
+    local base_branch="${1:-$DEFAULT_BASE_BRANCH}"
+    local current_branch=$(get_current_branch)
+    
+    # 現在のブランチがPRブランチかチェック
+    if [[ ! "$current_branch" =~ ^feature/ ]]; then
+        log_error "現在のブランチ（$current_branch）はfeatureブランチではありません"
+        exit 1
+    fi
+    
+    log_info "🔄 PR説明を最新実装内容で更新中..."
+    
+    # 最新の本文生成
+    local updated_pr_body=$(generate_pr_body "$base_branch" "$current_branch")
+    
+    # PRのタイトルも再生成
+    local feature_name=$(echo "$current_branch" | sed 's/^feature\///' | sed 's/-/ /g')
+    local pr_title
+    case "$feature_name" in
+        *"自動化"*) pr_title="$feature_name システムの実装" ;;
+        *"機能"*) pr_title="$feature_name の開発" ;;
+        *"修正"*|*"バグ"*) pr_title="$feature_name の修正対応" ;;
+        *"改善"*|*"最適化"*) pr_title="$feature_name の改善" ;;
+        *"追加"*|*"拡充"*) pr_title="$feature_name の追加実装" ;;
+        *"統合"*|*"連携"*) pr_title="$feature_name の統合対応" ;;
+        *"テスト"*) pr_title="$feature_name の実装とテスト" ;;
+        *"データ"*) pr_title="$feature_name の実装" ;;
+        *"UI"*|*"画面"*) pr_title="$feature_name の実装" ;;
+        *"API"*) pr_title="$feature_name の開発" ;;
+        *) pr_title="$feature_name 機能の実装" ;;
+    esac
+    
+    # 一時ファイルにPR本文を保存
+    local temp_file=$(mktemp)
+    echo "$updated_pr_body" > "$temp_file"
+    
+    # PR更新実行（タイトルと本文）
+    if gh pr edit --title "$pr_title" --body-file "$temp_file"; then
+        log_success "✅ PR説明更新完了"
+        echo ""
+        echo "📋 更新内容:"
+        echo "  📝 タイトル: $pr_title"
+        echo "  📄 本文: 最新の実装内容で更新"
+        echo "  📊 変更統計: 最新のコミットまで反映"
+        echo "  🔧 実装詳細: 新しい関数・設定変更を反映"
+        echo ""
+        echo "🔗 PR URL: $(gh pr view --json url -q .url 2>/dev/null || echo '取得中...')"
+        echo ""
+        echo "💡 次のステップ:"
+        echo "  - GitHubでPR内容を確認"
+        echo "  - レビュー依頼・マージ準備"
+    else
+        log_error "❌ PR説明の更新に失敗しました"
+        echo "💡 対処方法:"
+        echo "  - 現在のブランチに対応するPRが存在するか確認"
+        echo "  - gh CLI の認証状況を確認（gh auth status）"
+        echo "  - PRが既にマージされていないか確認"
+    fi
+    
+    # 一時ファイルクリーンアップ
+    rm -f "$temp_file"
 }
 
 # PR承認・マージ
@@ -987,6 +1160,9 @@ main() {
             ;;
         pr)
             create_pr "$is_draft" "$base_branch"
+            ;;
+        update-pr)
+            update_pr "$base_branch"
             ;;
         merge)
             merge_pr "$base_branch"
