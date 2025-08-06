@@ -4,10 +4,14 @@ Analyze branch changes and create appropriate commit message based on detected m
 
 ## Important Project Rules
 
-**CRITICAL**: このプロジェクトでは Claude Code 署名を含めない
-- 🤖 Generated with [Claude Code] を除外する
-- Co-Authored-By: Claude を除外する
-- Conventional Commits形式を使用する
+**CRITICAL**: Git コミット規約遵守必須
+- **言語**: 英語必須 (English required for commit messages)
+- **形式**: Conventional Commits完全準拠 (type(scope): description)
+- **Claude署名**: 絶対禁止・除外必須
+  - 🤖 Generated with [Claude Code] を除外する
+  - Co-Authored-By: Claude を除外する
+- **説明**: 動詞原形で開始、簡潔で明確
+- **本文**: 必要に応じて詳細説明（英語）
 
 ## Usage
 
