@@ -7,10 +7,26 @@
 set -e
 
 # 設定
-DEFAULT_BASE_BRANCH="main"
-PR_BRANCH_PREFIX="feature/"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+CONFIG_FILE="$PROJECT_ROOT/.pr-automation.config"
+
+# デフォルト設定
+DEFAULT_BASE_BRANCH="main"
+PR_BRANCH_PREFIX="feature/"
+FRONTEND_DIR="frontend"
+BACKEND_DIR="backend"
+TDD_ENABLED=true
+
+# 設定ファイル読み込み
+if [ -f "$CONFIG_FILE" ]; then
+    echo "📋 設定ファイルを読み込み中: .pr-automation.config"
+    source "$CONFIG_FILE"
+    echo "✅ 設定読み込み完了"
+else
+    echo "⚠️  設定ファイルが見つかりません。デフォルト設定を使用します。"
+    echo "💡 .pr-automation.config を作成することで設定をカスタマイズできます。"
+fi
 
 # カラー定義
 RED='\033[0;31m'
@@ -252,9 +268,9 @@ generate_commit_message() {
     local config_changes=0
     
     for file in "${staged_files[@]}"; do
-        if [[ "$file" =~ ^ap-study-app/ ]]; then
+        if [[ "$file" =~ ^${FRONTEND_DIR}/ ]]; then
             ((app_changes++))
-        elif [[ "$file" =~ ^ap-study-backend/ ]]; then
+        elif [[ "$file" =~ ^${BACKEND_DIR}/ ]]; then
             ((api_changes++))
         elif [[ "$file" =~ ^scripts/ ]]; then
             ((script_changes++))
@@ -376,8 +392,8 @@ self_review() {
     echo -e "\n🔧 コード品質チェック実行中..."
     
     # フロントエンド品質チェック
-    if [ -d "ap-study-app" ]; then
-        cd ap-study-app
+    if [ -d "$FRONTEND_DIR" ]; then
+        cd "$FRONTEND_DIR"
         if [ -f "package.json" ]; then
             log_info "📱 フロントエンド品質チェック実行中..."
             npm run lint || log_warning "⚠️  Lint警告が検出されました"
@@ -387,8 +403,8 @@ self_review() {
     fi
     
     # バックエンド品質チェック
-    if [ -d "ap-study-backend" ]; then
-        cd ap-study-backend
+    if [ -d "$BACKEND_DIR" ]; then
+        cd "$BACKEND_DIR"
         if [ -f "package.json" ]; then
             log_info "🔧 バックエンド品質チェック実行中..."
             npm run build || log_error "❌ バックエンドビルドエラーが発生しました"
