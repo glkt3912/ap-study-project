@@ -473,11 +473,32 @@ $(echo "$changed_files" | while read file; do
 done)
 
 ### ⚙️ 主要な実装詳細
-$(git diff "$base_branch"..."$current_branch" | grep -E "^\+.*function|^\+.*const.*=|^\+.*class|^\+.*export" | head -8 | sed 's/^+/- 追加: /' | sed 's/^  *//')
+$(
+# 新しく追加された関数・クラス等を抽出
+new_implementations=$(git diff "$base_branch"..."$current_branch" | grep -E "^\+.*function|^\+.*const.*=|^\+.*class|^\+.*export" | head -6 | sed 's/^+[[:space:]]*//' | sed 's/[[:space:]]*{.*$//' | sed 's/^/- **追加**: /')
+
+# 変更された主要な設定やインポート
+config_updates=$(git diff "$base_branch"..."$current_branch" | grep -E "^\+.*import|^\+.*require|^\+.*from" | head -3 | sed 's/^+[[:space:]]*//' | sed 's/^/- **導入**: /')
+
+# 実装内容が空でない場合のみ表示
+if [ -n "$new_implementations" ]; then
+  echo "$new_implementations"
+fi
+
+if [ -n "$config_updates" ]; then
+  echo "$config_updates"
+fi
+
+# 主要な設定変更
+major_changes=$(git diff "$base_branch"..."$current_branch" | grep -E "^\+.*=.*|^\+.*:.*" | head -4 | sed 's/^+[[:space:]]*//' | sed 's/^/- **設定**: /' | head -4)
+if [ -n "$major_changes" ]; then
+  echo "$major_changes"
+fi
+)
 
 ### 📊 変更統計
 \`\`\`
-$(git diff --stat "$base_branch"..."$current_branch")
+$(git diff --stat "$base_branch"..."$current_branch" 2>/dev/null || echo "統計情報の取得に失敗しました")
 \`\`\`
 
 ### 🛠 設定・スクリプト変更
