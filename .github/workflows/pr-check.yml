@@ -349,8 +349,10 @@ jobs:
     needs: [pr-ready]
     if: needs.pr-ready.result == 'success'
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
+      issues: write
+      repository-projects: write
 
     steps:
       - name: Checkout code
@@ -454,6 +456,7 @@ jobs:
       - name: Create detailed review comment
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prData = JSON.parse('${{ steps.pr-details.outputs.result }}');
             const isAutoApprovable = '${{ steps.review-analysis.outputs.is_auto_approvable }}' === 'true';
@@ -509,15 +512,56 @@ jobs:
             `;
             }
             
-            github.rest.pulls.createReview({
+            try {
+              console.log(`Creating review with event: ${isAutoApprovable ? 'APPROVE' : 'COMMENT'}`);
+              
+              const result = await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                body: reviewBody,
+                event: isAutoApprovable ? 'APPROVE' : 'COMMENT'
+              });
+              
+              console.log(`Review created successfully: ${result.data.state}`);
+              console.log(`Review ID: ${result.data.id}`);
+              
+              if (isAutoApprovable && result.data.state === 'APPROVED') {
+                console.log('✅ PR successfully auto-approved');
+              } else if (isAutoApprovable) {
+                console.log(`⚠️ Expected APPROVED but got: ${result.data.state}`);
+              }
+              
+            } catch (error) {
+              console.error('❌ Failed to create review:', error.message);
+              console.error('Error details:', error);
+              throw error;
+            }
+
+      - name: Manual review bypass comment
+        if: steps.review-analysis.outputs.is_auto_approvable == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number,
-              body: reviewBody,
-              event: isAutoApprovable ? 'APPROVE' : 'COMMENT'
+              issue_number: context.issue.number,
+              body: `## 👤 Manual Review Required
+              
+              This PR requires human approval due to:
+              - Complex changes or security-sensitive files
+              - Large change size (>500 lines)
+              
+              **To approve and merge:**
+              \`\`\`bash
+              gh pr review --approve && gh pr merge --squash
+              \`\`\`
+              
+              Or use the GitHub web interface to review and approve.`
             });
 
-      - name: Auto-merge eligible PRs
+      - name: Auto-merge eligible PRs  
         if: steps.review-analysis.outputs.is_auto_approvable == 'true'
         uses: actions/github-script@v7
         with:
