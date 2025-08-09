@@ -14,8 +14,8 @@ CONFIG_FILE="$PROJECT_ROOT/.pr-automation.config"
 # デフォルト設定
 DEFAULT_BASE_BRANCH="main"
 PR_BRANCH_PREFIX="feature/"
-FRONTEND_DIR="frontend"
-BACKEND_DIR="backend"
+FRONTEND_DIR="ap-study-app"
+BACKEND_DIR="ap-study-backend"
 TDD_ENABLED=true
 
 # 設定ファイル読み込み
@@ -54,6 +54,7 @@ show_help() {
   commit [message]               自動コミット（Conventional Commits形式）
   review                         自己レビュー実行
   pr [--draft]                   PR作成（--draft: ドラフトPR）
+  claude-pr [theme] [target]     Claude主導でPR生成（theme: テーマ, target: frontend|backend|both）
   update-pr                      既存PRの説明を最新実装内容で更新
   merge                          PR承認・マージ
   cleanup                        ブランチクリーンアップ
@@ -72,6 +73,8 @@ show_help() {
   $0 commit "feat: add exam data validation"
   $0 review
   $0 pr --draft
+  $0 claude-pr "新機能実装" both
+  $0 claude-pr "UI改善" frontend
   $0 update-pr
   $0 flow user-authentication
   
@@ -400,6 +403,18 @@ self_review() {
             log_info "📱 フロントエンド品質チェック実行中..."
             npm run lint || log_warning "⚠️  Lint警告が検出されました"
             npm run build || log_error "❌ フロントエンドビルドエラーが発生しました"
+            
+            # フロントエンド拡張品質チェック実行
+            if [ -d "scripts" ]; then
+                log_info "🛡️  フロントエンドセキュリティチェック実行中..."
+                ./scripts/frontend-security-check.sh || log_warning "⚠️  フロントエンドセキュリティ警告が検出されました"
+                
+                log_info "⚡ フロントエンドパフォーマンステスト実行中..."
+                ./scripts/frontend-performance-test.sh || log_warning "⚠️  フロントエンドパフォーマンス警告が検出されました"
+                
+                log_info "🎨 フロントエンドUI品質チェック実行中..."
+                ./scripts/frontend-ui-quality-check.sh || log_warning "⚠️  UI品質警告が検出されました"
+            fi
         fi
         cd ..
     fi
@@ -410,6 +425,27 @@ self_review() {
         if [ -f "package.json" ]; then
             log_info "🔧 バックエンド品質チェック実行中..."
             npm run build || log_error "❌ バックエンドビルドエラーが発生しました"
+            
+            # 拡張品質チェック実行
+            if [ -d "scripts" ]; then
+                log_info "🛡️  セキュリティチェック実行中..."
+                ./scripts/security-check.sh || log_warning "⚠️  セキュリティ警告が検出されました"
+                
+                log_info "🗄️  データベース整合性チェック実行中..."
+                ./scripts/database-check.sh || log_warning "⚠️  データベース警告が検出されました"
+                
+                log_info "📡 API品質チェック実行中..."
+                ./scripts/api-quality-check.sh || log_warning "⚠️  API品質警告が検出されました"
+                
+                log_info "⚡ パフォーマンステスト実行中..."
+                ./scripts/performance-test.sh || log_warning "⚠️  パフォーマンス警告が検出されました"
+                
+                log_info "📊 コード品質チェック実行中..."
+                ./scripts/code-quality-check.sh || log_warning "⚠️  コード品質警告が検出されました"
+                
+                log_info "📚 ドキュメントチェック実行中..."
+                ./scripts/documentation-check.sh || log_warning "⚠️  ドキュメント警告が検出されました"
+            fi
         fi
         cd ..
     fi
@@ -419,6 +455,15 @@ self_review() {
     echo "  ✅ 実装内容・コミット履歴を確認済み"
     echo "  ✅ 変更ファイルの分類・重要度を確認済み"
     echo "  ✅ コード品質チェック（lint・build）実行済み"
+    echo "  ✅ フロントエンドセキュリティチェック実行済み"
+    echo "  ✅ フロントエンドパフォーマンステスト実行済み"  
+    echo "  ✅ フロントエンドUI品質チェック実行済み"
+    echo "  ✅ バックエンドセキュリティチェック実行済み"
+    echo "  ✅ データベース整合性チェック実行済み"
+    echo "  ✅ API品質チェック実行済み"
+    echo "  ✅ バックエンドパフォーマンステスト実行済み"
+    echo "  ✅ コード品質強化チェック実行済み"
+    echo "  ✅ ドキュメント品質チェック実行済み"
     echo ""
     echo "💡 次のステップ: PR作成（./scripts/pr-automation.sh pr）"
     
@@ -859,6 +904,65 @@ multi_start_feature() {
     log_success "マルチリポジトリ機能開発開始完了"
 }
 
+# Claude主導PR生成（マルチリポジトリ対応）
+claude_pr_generation() {
+    local theme="${1:-機能改善}"
+    local target_repo="${2:-both}"  # frontend | backend | both
+    
+    log_info "🤖 Claude主導PR生成を開始します"
+    log_info "テーマ: $theme"
+    log_info "対象: $target_repo"
+    
+    # フロントエンド Claude PR生成
+    if [ "$target_repo" = "frontend" ] || [ "$target_repo" = "both" ]; then
+        if [ -d "$FRONTEND_DIR" ]; then
+            cd "$FRONTEND_DIR"
+            if [ -f "scripts/generate-pr-with-claude.sh" ]; then
+                log_info "🎨 フロントエンドClaude主導PR生成システムを実行中..."
+                ./scripts/generate-pr-with-claude.sh "$theme" "interactive"
+            else
+                log_warning "フロントエンド Claude PR生成スクリプトが見つかりません"
+                echo "期待パス: $FRONTEND_DIR/scripts/generate-pr-with-claude.sh"
+            fi
+            cd ..
+        else
+            log_warning "フロントエンドディレクトリが見つかりません: $FRONTEND_DIR"
+        fi
+    fi
+    
+    # バックエンド Claude PR生成
+    if [ "$target_repo" = "backend" ] || [ "$target_repo" = "both" ]; then
+        if [ -d "$BACKEND_DIR" ]; then
+            cd "$BACKEND_DIR"
+            if [ -f "scripts/generate-pr-with-claude.sh" ]; then
+                log_info "🔧 バックエンドClaude主導PR生成システムを実行中..."
+                ./scripts/generate-pr-with-claude.sh "$theme" "interactive"
+            else
+                log_warning "バックエンド Claude PR生成スクリプトが見つかりません"
+                echo "期待パス: $BACKEND_DIR/scripts/generate-pr-with-claude.sh"
+            fi
+            cd ..
+        else
+            log_warning "バックエンドディレクトリが見つかりません: $BACKEND_DIR"
+        fi
+    fi
+    
+    log_success "🎉 Claude主導PR生成処理完了"
+    echo ""
+    echo "👨‍💻 次の手順:"
+    echo "1. Claude Codeに生成された解析ガイドの内容を確認してもらう"
+    if [ "$target_repo" = "both" ]; then
+        echo "   - フロントエンド: /tmp/frontend-claude-pr-prompt.md"
+        echo "   - バックエンド: /tmp/claude-pr-prompt.md"
+    elif [ "$target_repo" = "frontend" ]; then
+        echo "   - フロントエンド: /tmp/frontend-claude-pr-prompt.md"
+    else
+        echo "   - バックエンド: /tmp/claude-pr-prompt.md"
+    fi
+    echo "2. 生成されたPR文書を確認・調整"
+    echo "3. 実際のPR作成を実行"
+}
+
 # マルチリポジトリ自動コミット（差分分析機能付き）
 multi_auto_commit() {
     local feature_name="$1"
@@ -1175,6 +1279,9 @@ main() {
             ;;
         flow)
             full_auto_flow "$1" "$base_branch" "$no_tdd"
+            ;;
+        claude-pr)
+            claude_pr_generation "$1" "$2"
             ;;
         *)
             log_error "不明なコマンド: $command"
