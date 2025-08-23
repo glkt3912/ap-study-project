@@ -192,17 +192,48 @@ BACKEND_URL=http://localhost:8000 npm run generate-types
 BACKEND_URL=http://invalid-url npm run generate-types
 ```
 
-### 🧪 品質チェック・TDD
+### 🧪 品質チェック・TDD（最適化済み）
 
 ```bash
-# TDD開発（推奨）
-./scripts/tdd-helper.sh cycle    # Red-Green-Refactor自動実行
-npm run tdd:green               # 個別フェーズ実行
+# バックエンド（ap-study-backend）
+cd ap-study-backend
 
-# 従来の品質チェック
-cd ap-study-app && npm run lint && npm run build
-cd ap-study-backend && npm run build
+# 🧪 TDD開発（推奨・最適化済み）
+npm run tdd:test                # テスト実行（詳細出力）
+npm run tdd:cycle               # 統合TDDサイクル（テスト→修正→フォーマット→再テスト）
+
+# 🔍 品質チェック（統合版）
+npm run quality:all             # 全品質チェック実行
+npm run quality:critical        # 重要な品質チェックのみ
+npm run quality:security        # セキュリティチェック
+npm run quality:api             # APIスキーマ・品質チェック
+
+# 🔧 個別コマンド
+npm run lint                    # ESLintチェック
+npm run lint:fix               # ESLint自動修正
+npm run format                 # Prettier実行
+npm run type-check             # TypeScript型チェック
+npm run test                   # テスト実行
+npm run test:watch             # ウォッチモードテスト
+npm run test:ui                # Vitest UIモード
+
+# 📋 個別シードデータ投入
+npm run seed:questions         # 過去問データのみ
+npm run seed:study-plan        # 学習計画データのみ
 ```
+
+```bash
+# フロントエンド（ap-study-app）
+cd ap-study-app
+npm run lint && npm run build
+```
+
+**💡 最適化のポイント:**
+- **34個 → 29個** のスクリプトに整理（約15%削減）
+- **重複コマンド削除**: `seed:all`, `pr:check`, `quality:code`
+- **TDD簡略化**: 4個のTDDコマンド → 2個に統合
+- **品質チェック統合**: `quality:all` でワンストップ実行
+- **個別実行可能**: 必要に応じて細かいコマンドも利用可能
 
 ## 📚 参考ドキュメント
 
@@ -211,9 +242,7 @@ cd ap-study-backend && npm run build
 - **`docs/development/workflow.md`** - TDD開発手順・ベストプラクティス
 - **`docs/development/commands.md`** - よく使うコマンド一覧
 - **`docs/development/tdd-commands.md`** - TDD専用コマンドリファレンス
-- **`docs/specifications/milestones.md`** - 重要な節目・達成目標
-- **`docs/specifications/tasks.md`** - 日次・週次タスク管理
-- **`docs/specifications/development-log.md`** - 詳細な開発進捗記録
+- **`docs/specifications/milestones.md`** - プロジェクト全体のフェーズ管理
 
 ### 📖 プロジェクト仕様
 
@@ -406,6 +435,44 @@ docker compose logs ap-study-app
 
 **💡 Claude Code への指示**:
 
+### **🔍 ESLint遵守の徹底（最重要）**
+
+Claude Codeは以下のESLint規約を**絶対に遵守**してください：
+
+#### **1. コード作成時の必須チェック**
+```typescript
+// コード作成・編集の度に以下を自動実行
+Edit: コード実装
+Bash: "npm run lint"                    # ESLintチェック必須
+Bash: "npm run lint -- --fix"          # 自動修正実行
+Bash: "npm run build"                  # TypeScript型チェック
+```
+
+#### **2. 絶対遵守ルール**
+- **`any` 型禁止**: `unknown`、具体的な型定義、またはインターフェースを使用
+- **複雑度制限**: 関数の複雑度は最大8 → ヘルパー関数で分割
+- **波括弧必須**: `if/else`文は必ず `{}` を使用
+- **行長制限**: 120文字以内
+- **console禁止**: `console.log()` は使用せず、適切なロギングを実装
+
+#### **3. 型定義パターン（推奨）**
+```typescript
+// ❌ 禁止パターン
+function handleData(data: any) { ... }
+const response: any = await fetch(...);
+
+// ✅ 推奨パターン  
+interface UserData { id: number; name: string; }
+function handleData(data: UserData) { ... }
+const response: ApiResponse<UserData> = await fetch(...);
+```
+
+#### **4. ESLint違反時の対処**
+- **即座に修正**: ESLint違反を検出したら即座に修正
+- **ヘルパー関数**: 複雑度違反はヘルパー関数で分割
+- **型安全性**: `any`型は具体的な型に置き換え
+- **コード品質**: 未使用変数・インポートを削除
+
 ### **🔄 PR自動化開発フロー（推奨）**
 
 - **新機能開発時**: PR自動化フローを使用してください
@@ -465,6 +532,32 @@ docker compose logs ap-study-app
 - **TDD vs 従来**: 重要機能はTDD、UI調整は従来開発を選択
 - **自動化活用**: 手動作業を最小限にし、スクリプトによる効率化を重視
 
+### **🔍 ESLint コード品質規約（必須遵守）**
+
+#### **TypeScript型安全性ルール**
+- **絶対禁止**: `any` 型の使用 → `unknown` または適切な型定義を使用
+- **推奨**: インターフェース・型定義の積極的活用
+- **禁止**: 非null assertion (`!`) → 適切なnullチェックを実装
+
+#### **関数複雑度制限**
+- **最大複雑度**: 8 (cyclomatic complexity)
+- **解決法**: ヘルパー関数への分割、単一責任原則の遵守
+- **パターン**: switch文、早期return、関数抽出を活用
+
+#### **コードスタイル規約**
+- **必須**: すべてのif/else文で波括弧 `{}` を使用
+- **行長制限**: 最大120文字
+- **禁止**: `console.log()` → 適切なロギング機能を使用
+- **必須**: 未使用変数・インポートの削除
+
+#### **コーディング時の自動チェック**
+```bash
+# コード作成・編集後は必ず実行
+npm run lint                    # ESLintチェック
+npm run lint -- --fix         # 自動修正可能な問題を修正
+npm run build                  # TypeScriptコンパイルチェック
+```
+
 ### **🎯 効率化の実現**
 
 - **81%短縮**: TDDスクリプトによる大幅な開発時間短縮
@@ -473,52 +566,24 @@ docker compose logs ap-study-app
 
 ---
 
-## 🤖 Claude Code自動進捗管理
+## 🤖 Claude Code マルチリポジトリ運用
 
-### **必須動作**
+### **📋 作業管理の責任分離**
 
-Claude Codeは開発作業の各段階で、以下を**自動実行**してください：
+**ルートリポジトリ** (`/home/glkt/projects/ap-study-project`):
+- 全体戦略・フェーズ管理 (`docs/specifications/milestones.md`)
+- 開発ツール・スクリプト管理 (`scripts/`)
+- プロジェクト文書・設計書管理 (`docs/`)
 
-#### **1. TodoWrite使用後（必須）**
-```bash
-# TodoWriteでタスクを完了マーク後、必ず実行
-Bash: "./scripts/progress-manager.sh task-complete '[完了したタスクの具体的内容]'"
-```
+**個別リポジトリ** (`ap-study-app/`, `ap-study-backend/`):
+- 具体的機能開発・コード変更はPRで管理
+- 詳細な進捗・タスク管理はPR・Issue活用
+- 技術的実装・テスト・品質管理
 
-#### **2. 新機能開発開始時（必須）**
-```bash
-# 新機能開発開始時、必ず実行
-Bash: "./scripts/progress-manager.sh feature-start '[機能名]'"
-TodoWrite: 生成されたTDDタスクを活用
-```
+### **🔄 統合作業フロー**
 
-#### **3. マイルストーン達成時（必須）**
-```bash
-# マイルストーン状況変更時、必ず実行
-Bash: "./scripts/progress-manager.sh milestone-update '[Milestone名]' '[planning|in-progress|completed]'"
-```
+1. **全体設計・計画**: ルートリポジトリで文書・方針策定
+2. **機能開発**: 個別リポジトリでPR運用による実装
+3. **統合・デプロイ**: PR自動化スクリプトによる連携管理
 
-### **推奨動作**
-
-作業日の終わりや重要な節目で実行を検討：
-
-```bash
-# 日次サマリー（推奨）
-Bash: "./scripts/progress-manager.sh daily-summary"
-
-# 週次サマリー（推奨）  
-Bash: "./scripts/progress-manager.sh week-summary"
-```
-
-### **進捗管理フロー統合**
-
-1. **TDD開発フロー**:
-   - feature-start → generate → red → green → refactor → task-complete
-   
-2. **従来開発フロー**:
-   - TodoWrite（タスク追加） → 実装 → task-complete
-
-3. **マイルストーン管理**:
-   - milestone-update（開始時） → 継続開発 → milestone-update（完了時）
-
-**💡 このシステムにより、開発進捗が自動的に文書化され、継続的な改善とプロジェクト管理が実現されます。**
+**💡 この分離により、文書と実装の整合性を保ちながら効率的な開発を実現。**
